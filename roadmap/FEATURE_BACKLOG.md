@@ -26,7 +26,7 @@ Security-relevant gaps with a direct tenant-isolation or credential-handling imp
 | H2 | Migrate Google Drive and Dropbox OAuth tokens off the legacy plaintext `oauth_tokens` table onto the already-built encrypted `oauth_connections`/`oauth_credentials` model (schema already lists these providers in its CHECK constraint) | [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md), [SECURITY.md](../architecture/SECURITY.md) |
 | H3 | Replace non-constant-time secret comparisons with `crypto.timingSafeEqual` — shared API key checks in both repos, and the admin password/session-signature checks in `Relativity/middleware/adminAuth.js`/`routes/admin.js` | [SECURITY.md](../architecture/SECURITY.md) — Current Risks |
 | H4 | Add per-caller entitlement verification to AIKB's `x-api-key`-only routes (ingest/list/delete under `/api/knowledge`), which today trust the shared key plus Relativity's upstream checks without independently re-verifying caller-to-client entitlement | [AIKB.md](../architecture/AIKB.md) — Current Limitations, [SECURITY.md](../architecture/SECURITY.md) |
-| H5 | Re-enable scheduled execution of the Slack retry sweep (`GET /api/integrations/slack/sweep`) — the durable-redelivery-recovery code exists and works but has no active scheduler after its Vercel Cron entry was removed due to a hosting-plan limitation | [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md) |
+| H5 | Re-enable scheduled execution of the Slack retry sweep (`GET /api/integrations/slack/sweep`) — the durable-redelivery-recovery code exists and works but has no active scheduler after its Vercel Cron entry was removed due to a hosting-plan limitation. This is a regression from Milestone 4's own definition of done, not a deferred feature — a Vercel Pro upgrade, an external scheduler, or a Railway-side scheduled job in AIKB would all close it. | [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md), [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md) |
 
 ## Medium Priority
 
@@ -45,6 +45,8 @@ Inconsistencies between providers, and features whose schema/backend already exi
 | M9 | Add a UI control for the existing chat-session-rename endpoint (`PATCH /api/knowledge/chat/sessions/:id/title`) — implemented on the backend, unreachable from the frontend | [CLIENT_PORTAL.md](../product/CLIENT_PORTAL.md) |
 | M10 | Extend collection-based retrieval filtering to the portal's own chat query — collections currently scope only Slack's retrieval, not in-portal chat | [CLIENT_PORTAL.md](../product/CLIENT_PORTAL.md), [AIKB.md](../architecture/AIKB.md) |
 | M11 | Add Row-Level Security as defense-in-depth on the highest-sensitivity tables (`oauth_tokens`, `oauth_credentials`, `knowledge_chunks`), without removing existing application-layer checks | [SECURITY.md](../architecture/SECURITY.md) |
+| M12 | Ship Milestone 6's fuller knowledge-gap/conversation-metadata polish — a system-vs-user `reportedBy` distinction and a richer `originMetadata` shape, on top of Milestone 4's already-shipped minimal `origin`/`origin_metadata`/`idempotency_key` schema slice | [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md), [KNOWLEDGE_GAP_DETECTION.md](../product/KNOWLEDGE_GAP_DETECTION.md) |
+| M13 | Implement Milestone 7 — Slack direct-message support and per-user/employee-level authorization (Slack user → Relativity member identity mapping), explicitly deferred from the Slack MVP | [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md), [CONNECTOR_ROADMAP.md](CONNECTOR_ROADMAP.md) |
 
 ## Low Priority
 
@@ -58,6 +60,8 @@ Dead code removal and minor consistency cleanup with no functional or security i
 | L4 | Remove leftover "TEMP DEBUG" `console.log`/`console.error` statements in the voice-transcription code path (`routes/api.js`, `portal.js`) | [CLIENT_PORTAL.md](../product/CLIENT_PORTAL.md) |
 | L5 | Consolidate AIKB's two overlapping analytics endpoints (`/summary`, `/analytics`), which independently compute overlapping aggregates on every call with no shared computation or caching | [KNOWLEDGE_ANALYTICS.md](../product/KNOWLEDGE_ANALYTICS.md) |
 | L6 | Clean up `deleteLegacyDocumentsForClient`'s reference to an untracked legacy `documents` table with no migration in this repository | [AIKB.md](../architecture/AIKB.md) |
+| L7 | Delete AIKB's now-fully-inert legacy `routes/slack.js` (`410` stub) and its unused `SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET` config reads, now that Relativity's real Slack Events endpoint is built and verified in production | [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md), [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md) |
+| L8 | Document `SERVICE_REQUEST_SIGNING_SECRET`, `RELATIVITY_API_BASE_URL`, and `RELATIVITY_DELIVER_TIMEOUT_MS` in AIKB's `.env.example` — read by `aikb/config/index.js` since Milestone 4 but never added to the example file | [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md) |
 
 ---
 
