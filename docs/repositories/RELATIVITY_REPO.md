@@ -27,7 +27,7 @@ Relativity/
 ├── services/                    # ~25 service modules, see table below
 ├── supabase/migrations/         # 8 tracked .sql files (earliest: 2026-06-18)
 ├── public/                      # marketing, portal, admin static frontends
-├── test/                        # ~20 test files, node:test based
+├── test/                        # 24 test files, node:test based (266/266 passing as of the ADR-007 implementation)
 └── vercel.json
 ```
 
@@ -41,7 +41,7 @@ Relativity/
 | `routes/team.js` | Team member management |
 | `routes/leads.js` | Public lead-capture form endpoint |
 | `routes/collections.js` | Knowledge-collection CRUD/assignment proxy to AIKB |
-| `routes/integrations/slack.js` | Slack OAuth, Events, delivery callback, collections allow-list, cron sweep (deprecated — superseded by bounded-retry design, see [ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) |
+| `routes/integrations/slack.js` | Slack OAuth, Events, delivery callback, collections allow-list. The cron sweep route has been removed ([ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md), implemented) |
 
 ## Services — verification status per row
 
@@ -52,11 +52,14 @@ Relativity/
 | `integrationCredentialEncryption.js` | AES-256-GCM envelope encryption for OAuth secrets | **Historical** (per existing `SECURITY.md`, not re-read this pass) |
 | `oauthStateService.js` | CSRF state for Slack OAuth (`oauth_states`, hash-only) | **Structure Verified** |
 | `slackCollectionAccessService.js` | Reads/writes `slack_collection_access` — which AIKB collections Slack may search per client | **Code Verified** (read in full) |
-| `slackEventLogService.js` | Writes `slack_event_log` (Slack Events dedup/audit) | **Structure Verified** |
-| `slackEventsService.js`, `slackIntegrationService.js`, `slackSignatureService.js`, `slackAnswerFormatter.js`, `slackDeliverService.js`, `slackDeliveryService.js`, `slackQuestionService.js` | Slack pipeline: signature verification, event handling, question forwarding to AIKB `/ask`, answer delivery back to Slack | **Historical** |
+| `slackEventLogService.js` | Writes `slack_event_log` (Slack Events dedup/audit); `STATUS.DELIVERY_FAILED` and `markDeliveryFailed()` (redacts `question` in the same UPDATE) implement [ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)'s terminal state | **Code Verified** |
+| `slackEventsService.js`, `slackIntegrationService.js`, `slackSignatureService.js`, `slackAnswerFormatter.js`, `slackDeliveryService.js`, `slackQuestionService.js` | Slack pipeline: signature verification, event handling, question forwarding to AIKB `/ask`, answer delivery back to Slack | **Historical** |
+| `slackDeliverService.js` | Handles `POST /deliver`; bounded, immediate retries (via `retryWithBackoff.js`) on the real-answer delivery leg, terminal `delivery_failed` on exhaustion; AIKB-generation-failure path unchanged (single attempt, generic `failed`) | **Code Verified** ([ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) |
+| `retryWithBackoff.js` | Generic bounded-retry helper (configurable attempt count/backoff, injectable sleep) — not Slack-specific | **Code Verified** ([ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) |
+| `slackDeliveryFailureService.js` | Shared "mark `delivery_failed` + best-effort redact via AIKB" logic, used by both `slackDeliverService.js` and `slackEventsService.js` | **Code Verified** ([ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) |
+| `aikbRedactClient.js` | Signed-envelope client for AIKB's `POST /api/knowledge/chat/redact`; best-effort, single-attempt, not itself retried | **Code Verified** ([ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) |
 | `aikbService.js` | HTTP client for AIKB's management API (documents, jobs, analytics) | **Code Verified** (partial — confirms Relativity never queries AIKB tables directly except via `slackCollectionAccessService`) |
 | `aikbAskClient.js` | Signed HMAC envelope client for AIKB `/api/knowledge/ask` (Slack path) | **Structure Verified** |
-| `cronSweepAuthService.js` | Bearer-secret auth for the Slack delivery-retry sweep endpoint (deprecated; sweep restoration was superseded by the bounded-retry/`delivery_failed` design, [ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) | **Structure Verified** |
 | `serviceRequestAuth.js` | HMAC-signed service-request envelope (shared design with AIKB's copy) | **Historical** |
 | `dropboxService.js`, `googleDriveService.js`, `googleDriveImportService.js` | Legacy provider integrations (plaintext `oauth_tokens`) | **Structure Verified** |
 | `emailService.js` | Transactional email (Resend/SMTP) | **Structure Verified** |

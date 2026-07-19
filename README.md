@@ -78,11 +78,11 @@ Architecture/
 ## Current Limitations
 
 - `vision/` and `ideas/` remain empty stubs — no company-level (non-codebase) source material has been in scope to populate them from.
-- Documentation here reflects a point-in-time review of both source repositories, most recently updated through Slack Milestone 4's production deployment. Neither repository is version-pinned against this documentation set, so drift is possible, especially in the connector and security areas, which change most frequently.
+- Documentation here reflects a point-in-time review of both source repositories, most recently updated through the [ADR-007](decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) bounded-Slack-delivery-retry implementation (superseding the earlier Milestone 4 production-deployment snapshot). Neither repository is version-pinned against this documentation set, so drift is possible, especially in the connector and security areas, which change most frequently.
 - There is no automated check tying this repository's claims back to the source repositories — accuracy currently depends on manual review at documentation-update time.
 
 ## Future Extension Points
 
 - Populate `vision/` and `ideas/` once company-level (not codebase-level) source material is available to verify against.
-- Add new ADRs to `decisions/` as further significant architecture decisions are made (e.g., migrating Google Drive/Dropbox to encrypted credentials). The Slack delivery-retry sweep question is already decided — see [ADR-007](decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md).
+- Add new ADRs to `decisions/` as further significant architecture decisions are made (e.g., migrating Google Drive/Dropbox to encrypted credentials). The Slack delivery-retry sweep question is decided **and implemented** — see [ADR-007](decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md).
 - Consider a lightweight process (e.g., a documentation-review step alongside major PRs to `AIKB` or `Relativity`) to keep the `architecture/` documents from drifting out of sync with the code they describe.

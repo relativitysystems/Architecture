@@ -1,6 +1,8 @@
 # Feature Backlog
 
-Source repositories: `relativitysystems/AIKB` and `relativitysystems/Relativity`. Every item below is derived directly from evidence found during the architecture review that produced this documentation set (dead code, explicit TODO comments, documented security gaps, and schema/code already built but not yet wired up). No item here is speculative product ideation — see `roadmap/MASTER_ROADMAP.md` for that instead once populated.
+Source repositories: `relativitysystems/AIKB` and `relativitysystems/Relativity`. Every item below is derived directly from evidence found during the architecture review that produced this documentation set (dead code, explicit TODO comments, documented security gaps, and schema/code already built but not yet wired up). No item here is speculative product ideation — see `roadmap/MASTER_ROADMAP.md` for that instead.
+
+**Exception:** the [Go-to-Market Priority](#go-to-market-priority) section below is explicitly *not* code-evidence-derived technical debt — it is a business/product deliverable, included here per direct product direction because it is currently the highest-priority item on the roadmap. Everything else in this document keeps its original code-evidence-only scope.
 
 ## Overview
 
@@ -16,6 +18,14 @@ No new architecture is proposed by this document itself; every item below either
 
 ---
 
+## Go-to-Market Priority
+
+| # | Item | Notes |
+|---|---|---|
+| GTM1 | **Demo Video and Sales-Ready Demo Account.** Choose the demo customer scenario; prepare realistic business documents; configure General and Slack knowledge collections; verify portal queries; verify Slack questions; prepare a short demo script; record the product walkthrough; add narration explaining pain point, value proposition, and differentiation; edit and review the video; publish it to the appropriate website/outreach location; prepare a shorter cut for direct outreach if useful. Treat this as a product and go-to-market deliverable, not merely content creation — see [../roadmap/MASTER_ROADMAP.md](MASTER_ROADMAP.md)'s dedicated Demo Video milestone for full acceptance criteria and the dependency checklist. | Depends only on Slack bounded-delivery and Knowledge Collections being verified in staging (both are code-complete; see H5 below and [MASTER_ROADMAP.md](MASTER_ROADMAP.md) Track A) — does **not** wait for any other item in this backlog, including the High-priority security items below. |
+
+---
+
 ## High Priority
 
 Security-relevant gaps with a direct tenant-isolation or credential-handling impact.
@@ -26,7 +36,7 @@ Security-relevant gaps with a direct tenant-isolation or credential-handling imp
 | H2 | Migrate Google Drive and Dropbox OAuth tokens off the legacy plaintext `oauth_tokens` table onto the already-built encrypted `oauth_connections`/`oauth_credentials` model (schema already lists these providers in its CHECK constraint) | [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md), [SECURITY.md](../architecture/SECURITY.md) |
 | H3 | Replace non-constant-time secret comparisons with `crypto.timingSafeEqual` — shared API key checks in both repos, and the admin password/session-signature checks in `Relativity/middleware/adminAuth.js`/`routes/admin.js` | [SECURITY.md](../architecture/SECURITY.md) — Current Risks |
 | H4 | Add per-caller entitlement verification to AIKB's `x-api-key`-only routes (ingest/list/delete under `/api/knowledge`), which today trust the shared key plus Relativity's upstream checks without independently re-verifying caller-to-client entitlement | [AIKB.md](../architecture/AIKB.md) — Current Limitations, [SECURITY.md](../architecture/SECURITY.md) |
-| H5 | **Slack Terminal Delivery Failure Handling.** Implement bounded, immediate-in-flow Slack delivery retries; on exhaustion, mark the `slack_event_log` row with a terminal `delivery_failed` status, redact the stored question/answer/context, and retain only dedup and diagnostic metadata. Disable or remove the unused `GET /api/integrations/slack/sweep` scheduled-recovery path — it is superseded, not restored. See [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) for the full decision and acceptance criteria. | [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md), [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md), [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md) |
+| H5 | ✅ **Completed.** ~~Slack Terminal Delivery Failure Handling.~~ Bounded, immediate-in-flow Slack delivery retries implemented (3 total attempts by default, configurable); on exhaustion, the `slack_event_log` row is marked with a terminal `delivery_failed` status, the stored question is redacted, and only dedup/diagnostic metadata is retained. The `GET /api/integrations/slack/sweep` scheduled-recovery path has been **removed**, not merely disabled. AIKB-side chat content is redacted via a best-effort signed callback. 266/266 Relativity and 47/47 AIKB tests passing. See [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)'s Implementation Status section for full detail, including the follow-ups tracked as M14 below. | [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md), [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md), [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md) |
 
 ## Medium Priority
 
@@ -47,6 +57,7 @@ Inconsistencies between providers, and features whose schema/backend already exi
 | M11 | Add Row-Level Security as defense-in-depth on the highest-sensitivity tables (`oauth_tokens`, `oauth_credentials`, `knowledge_chunks`), without removing existing application-layer checks | [SECURITY.md](../architecture/SECURITY.md) |
 | M12 | Ship Milestone 6's fuller knowledge-gap/conversation-metadata polish — a system-vs-user `reportedBy` distinction and a richer `originMetadata` shape, on top of Milestone 4's already-shipped minimal `origin`/`origin_metadata`/`idempotency_key` schema slice | [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md), [KNOWLEDGE_GAP_DETECTION.md](../product/KNOWLEDGE_GAP_DETECTION.md) |
 | M13 | Implement Milestone 7 — Slack direct-message support and per-user/employee-level authorization (Slack user → Relativity member identity mapping), explicitly deferred from the Slack MVP | [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md), [CONNECTOR_ROADMAP.md](CONNECTOR_ROADMAP.md) |
+| M14 | **Slack delivery-failure operational follow-ups (H5 completed; these were not part of its scope).** (a) Manual staging/production-like verification of the bounded-retry/`delivery_failed` flow, since automated tests cover logic but not a live Slack workspace/portal walkthrough — see [MASTER_ROADMAP.md](MASTER_ROADMAP.md) Track A. (b) Monitoring/alerting for a sustained rise in `delivery_failed` events, currently visible only in application logs. (c) Observability for AIKB redaction-callback failures — the callback is best-effort and its failures are only logged, never surfaced. (d) Implement the technical-metadata retention/cleanup TODO left in `Relativity/services/slackEventLogService.js` (ADR-007 suggested 7–30 days; no mechanism exists in either repository yet). None of these block the demo video (GTM1) or the Go-to-Market track. | [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) — Known Gaps, [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md) — Current Limitations |
 
 ## Low Priority
 
@@ -67,7 +78,7 @@ Dead code removal and minor consistency cleanup with no functional or security i
 
 ## Current Limitations
 
-This backlog is scoped to what is directly evidenced in the two source codebases as of this review — it excludes product ideation, new-integration proposals (Gmail/Outlook/Teams/CRM — see [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md) for the pattern those would follow, not a scheduled item here), and anything requiring information outside the codebase (e.g., customer feedback) to prioritize correctly. Priority levels reflect risk/impact as inferred from code, not business priority, which may reorder these items.
+This backlog (excluding the [Go-to-Market Priority](#go-to-market-priority) section, which is deliberately business-priority-driven, not evidence-derived) is scoped to what is directly evidenced in the two source codebases as of this review — it excludes further product ideation, new-integration proposals (Gmail/Outlook/Teams/CRM — see [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md) for the pattern those would follow, not a scheduled item here), and anything requiring information outside the codebase (e.g., customer feedback) to prioritize correctly. Priority levels for the H/M/L sections reflect risk/impact as inferred from code, not business priority, which may reorder these items — the Go-to-Market item is the one deliberate exception, and it currently outranks every H-priority item on business grounds. See [MASTER_ROADMAP.md](MASTER_ROADMAP.md) for the full rationale.
 
 ## Future Extension Points
 

@@ -22,14 +22,14 @@ There is no single unified service-to-service authentication mechanism. Three di
 
 Only two paths carry an idempotency guarantee today:
 
-- **Slack's `/ask` → `/deliver` round trip**: `idempotencyKey` is derived from Slack's own `event_id`, checked against `slack_event_log.UNIQUE(provider, external_event_id)` in Relativity and against a partial unique index on `knowledge_chat_sessions.idempotency_key` in AIKB (belt-and-suspenders — either dedup layer alone would catch a redelivery).
+- **Slack's `/ask` → `/deliver` round trip**: `idempotencyKey` is derived from Slack's own `event_id`, checked against `slack_event_log.UNIQUE(provider, external_event_id)` in Relativity and against a partial unique index on `knowledge_chat_sessions.idempotency_key` in AIKB (belt-and-suspenders — either dedup layer alone would catch a redelivery). This holds even after a `delivery_failed` terminal state — verified by test — and `/chat/redact` (below) reuses the same `idempotencyKey` to identify what to redact, retained specifically to keep this dedup guarantee intact through redaction ([ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)).
 - **`/ingest`**: content-hash deduplication (not a caller-supplied idempotency key) — re-ingesting identical content is a no-op if the hash matches an existing document.
 
-Every other route (`/query`, `/gaps`, `/reindex`, `DELETE /document/:id`) has no idempotency key and no dedup guarantee — a retried request is processed again.
+Every other route (`/query`, `/gaps`, `/reindex`, `DELETE /document/:id`) has no idempotency key and no dedup guarantee — a retried request is processed again. `/chat/redact` has no dedup key of its own but is naturally idempotent (redacting twice is a safe no-op).
 
 ## Error Handling, Retries, Timeouts
 
-- **Relativity → AIKB (`/ask`)**: `AIKB_ASK_TIMEOUT_MS` (default 4000ms). On failure, the `slack_event_log` row stays at `received`, Slack still gets an immediate `200` ack, and recovery today depends on AIKB's own Inngest `onFailure` callback — the delivery-retry sweep that could otherwise recover this row is unscheduled and will not be restored; see [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md) and [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) for the approved bounded-retry/`delivery_failed` design that replaces it.
+- **Relativity → AIKB (`/ask`)**: `AIKB_ASK_TIMEOUT_MS` (default 4000ms). This call itself is now retried up to 3 total attempts (2s/5s backoff) by `services/slackEventsService.js` before the `slack_event_log` row is marked `delivery_failed` — implemented as part of [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md), extending its bounded-retry design to this leg specifically so a row is never left permanently stuck at `received` now that the sweep no longer exists. AIKB's own Inngest `onFailure` callback (the AIKB-generation-failure path) remains a separate, unchanged recovery mechanism for the case where AIKB accepted the question but couldn't answer it. See [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md).
 - **AIKB → Relativity (`/deliver`)**: `RELATIVITY_DELIVER_TIMEOUT_MS` (default 8000ms). AIKB's Inngest function retries the whole step up to 3 times on failure; after retries are exhausted, `onFailure` posts an error payload to `/deliver` so the user isn't left silent.
 - **Portal path (`/query`)**: no automatic retry; a failed request surfaces as an error to the browser.
 - No route in either direction implements exponential backoff or a circuit breaker.
@@ -91,11 +91,32 @@ Every other route (`/query`, `/gaps`, `/reindex`, `DELETE /document/:id`) has no
 
 **Authorization rules:** looks up the `slack_event_log` row by `idempotencyKey`, rejects a `clientId` mismatch (cross-tenant safety check), and only proceeds if the row's status is `enqueued`.
 
-**Idempotency:** a conditional `UPDATE ... WHERE status = 'enqueued'` claims the row atomically — only the first delivery attempt ever proceeds, verified under concurrent calls in tests.
+**Idempotency:** a conditional `UPDATE ... WHERE status = 'enqueued'` claims the row atomically — only the first delivery attempt ever proceeds, verified under concurrent calls in tests. A callback arriving after the row already reached a terminal state (`delivered`, `failed`, or `delivery_failed`) is a safe no-op — verified by test for the `delivery_failed` case specifically.
 
-**Failure behavior:** a revoked/inactive Slack connection is never used for delivery; `chat.postMessage` failures are mapped to safe internal error codes and logged, never surfaced with raw Slack error text.
+**Failure behavior (implemented, [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)):** a revoked/inactive Slack connection is never used for delivery; `chat.postMessage` failures are mapped to safe internal error codes and logged, never surfaced with raw Slack error text. For a real generated answer (`payload.error` not `true`), a `chat.postMessage` failure is retried up to 3 total attempts (2s/5s backoff, configurable) via `services/retryWithBackoff.js` before the row is marked `delivery_failed` and its `question` redacted; a best-effort, non-retried callback to AIKB's `POST /chat/redact` (below) then redacts the corresponding AIKB-side chat content. For an AIKB-generation-failure notification (`payload.error === true`), behavior is unchanged from before this ADR: a single attempt, the pre-existing generic `failed` status on failure, no redaction.
 
 **Notes:** decrypts the org's Slack bot token in memory immediately before use; the token is never sent to or seen by AIKB.
+
+---
+
+### POST `/api/knowledge/chat/redact`
+
+**Owner:** AIKB
+**Caller:** Relativity
+
+**Authentication:** `x-api-key` (router-level) + `requireServiceRequest` (same additive HMAC envelope as `/ask`). `clientId`/`idempotencyKey` come only from the verified envelope, never the request body.
+
+**Request:** signed envelope `{ requestId, issuedAt, expiresAt, clientId, idempotencyKey, signature }` wrapping an empty payload (`{}`) — the envelope alone identifies what to redact.
+
+**Response:** `{ redacted: true, sessionId }` if a matching chat session existed, or `{ redacted: false, reason: 'not_found' }` if none did (e.g. AIKB was never reached for this event).
+
+**Authorization rules:** none beyond the signed envelope — this is a narrowly-scoped, machine-to-machine cleanup call, not a customer-facing route.
+
+**Idempotency:** safe to call more than once for the same `idempotencyKey` — redacting an already-redacted (or never-created) session is a no-op.
+
+**Failure behavior:** called by Relativity's `services/slackDeliveryFailureService.js` immediately after a `slack_event_log` row is marked `delivery_failed`, via `services/aikbRedactClient.js`. **This call is best-effort and single-attempt on Relativity's side — not itself bounded-retried.** If it fails, the failure is logged and swallowed; Relativity's own redaction (the `slack_event_log.question` column) has already happened unconditionally by this point, but the AIKB-side chat session/message content can remain un-redacted with no automatic follow-up, since [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) rules out any scheduled recovery process. See that ADR's Implementation Status section for the full tradeoff.
+
+**Notes:** implemented in `aikb/services/supabaseService.js#redactChatSessionByIdempotencyKey` — nulls the session `title` and replaces every message's `content` with a fixed marker (the column is `NOT NULL`) and nulls `sources`/`metadata`. Session/message rows, ids, timestamps, `origin`/`origin_metadata`, and `idempotency_key` are retained.
 
 ---
 

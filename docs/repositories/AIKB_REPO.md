@@ -21,21 +21,21 @@ aikb/
 │   └── serviceRequest.js        # requireServiceRequest — HMAC envelope gate
 ├── migrations/                  # 6 tracked .sql files, 001–006
 ├── routes/
-│   ├── knowledge.js             # x-api-key management routes + JWT-gated query/chat/gaps + /ask
+│   ├── knowledge.js             # x-api-key management routes + JWT-gated query/chat/gaps + /ask + /chat/redact (ADR-007)
 │   └── slack.js                 # retired handler, 410-only
 ├── inngest/
 │   ├── client.js
 │   └── functions.js              # background ingestion + Slack question pipeline
 ├── services/                    # see table below
 ├── scripts/                     # testDocxParse.js, testPdfParse.js (manual test scripts)
-└── test/                        # ~10 test files
+└── test/                        # 8 test files (47/47 passing as of the ADR-007 implementation)
 ```
 
 ## Services — verification status per row
 
 | Service | Purpose | Status |
 |---|---|---|
-| `supabaseService.js` | Primary AIKB-DB data-access layer: `knowledge_documents`, `knowledge_chunks`, `knowledge_ingestion_jobs`, `knowledge_chat_sessions`/`messages`, `knowledge_gaps`, `knowledge_collections`; also holds a second `globalSupabase` client reading `clients`/`client_members` from the Global project; `searchChunks()` calls `match_knowledge_chunks` RPC; `deleteLegacyDocumentsForClient()` targets the legacy `documents` table | **Code Verified** — read extensively across this and the prior audit turn |
+| `supabaseService.js` | Primary AIKB-DB data-access layer: `knowledge_documents`, `knowledge_chunks`, `knowledge_ingestion_jobs`, `knowledge_chat_sessions`/`messages`, `knowledge_gaps`, `knowledge_collections`; also holds a second `globalSupabase` client reading `clients`/`client_members` from the Global project; `searchChunks()` calls `match_knowledge_chunks` RPC; `deleteLegacyDocumentsForClient()` targets the legacy `documents` table; `redactChatSessionByIdempotencyKey()` implements [ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)'s AIKB-side redaction (nulls session title, replaces message content with a fixed marker, nulls sources/metadata; idempotent) | **Code Verified** — read extensively across this and the prior audit turn |
 | `documentParser.js` | Parses uploaded files (PDF/DOCX/etc.) into text prior to chunking | **Structure Verified** |
 | `chunkService.js` | Splits parsed text into chunks for embedding | **Structure Verified** |
 | `openaiService.js` | Embeddings (`text-embedding-3-small` by default) + chat completion for answer generation | **Code Verified** (partial — confirms `documents`/`knowledge_documents` reference lines) |

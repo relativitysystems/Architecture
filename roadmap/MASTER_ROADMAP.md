@@ -15,7 +15,8 @@ What's built:
 - A working RAG chat pipeline with intent classification, query rewriting, citation generation, and heuristic knowledge-gap detection (AIKB).
 - Knowledge collections with SQL-level, fail-closed retrieval enforcement (AIKB).
 - A full client portal: authentication, document upload, chat, chat history, collections management, team management (Relativity).
-- Three external connectors at different maturity levels: Slack (fully modernized reference implementation), Google Drive (working but split across two auth paths), Dropbox (connect/status only, no working import path). See [CONNECTOR_ROADMAP.md](CONNECTOR_ROADMAP.md).
+- Three external connectors at different maturity levels: Slack (fully modernized reference implementation, including bounded delivery-failure handling), Google Drive (working but split across two auth paths), Dropbox (connect/status only, no working import path). See [CONNECTOR_ROADMAP.md](CONNECTOR_ROADMAP.md).
+- Bounded, immediate Slack delivery retries with a terminal `delivery_failed` state and cross-repository redaction — no scheduled sweep of any kind. See [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md).
 
 ## Completed Architecture Phases
 
@@ -23,28 +24,85 @@ What's built:
 2. **Phase 2/3 — Platform architecture and domain model (design specifications).** Proposed a larger target architecture (Knowledge Surface abstraction, full signed `ServiceRequest` platform, split Collection ownership). Only part of this was built — see the phase summaries in the history document for what carried through versus what remains proposed.
 3. **Phase 4 Milestones 1–4 — Slack MVP, shipped to production.** Legacy AIKB Slack handler retired; encrypted OAuth credential storage built; a real Slack OAuth connection flow shipped; `@RelativityBot` mentions answered end-to-end via AIKB's shared knowledge pipeline, verified live against a real Slack workspace on 2026-07-16. See [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md) for full milestone detail.
 4. **Knowledge collections**, implemented in AIKB beyond the original Milestone 5 scope — a full CRUD model with fail-closed Slack enforcement, not just the originally-planned hardcoded stand-in. See [../decisions/ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md](../decisions/ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md).
+5. **Slack bounded delivery retries and terminal `delivery_failed` state (ADR-007, item H5), shipped to both repositories.** The never-restored delivery-retry sweep and its `CRON_SECRET` auth have been removed outright (not merely disabled). In their place: up to 3 total delivery attempts with short backoff, a terminal `delivery_failed` status on exhaustion, Relativity-side question redaction, and a best-effort cross-repository callback that redacts the corresponding AIKB chat session/message content. Distinct handling for AIKB-generation failure is preserved unchanged. 266/266 Relativity tests and 47/47 AIKB tests passing. See [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)'s Implementation Status section for full file-referenced detail.
 
 ## Current Phase
 
-The platform is between Milestone 4 (shipped) and Milestones 5–7 (not started). Milestone 4's production rollout left the Slack delivery-retry sweep unscheduled (a Vercel plan-tier limitation); rather than restoring that scheduler, the product decision is to **not** run a scheduled sweep at all — see [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md). The highest-priority open item is implementing bounded, immediate Slack delivery retries with a terminal `delivery_failed` state in their place. See [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
+Slack delivery reliability and Knowledge Collections are both implemented and test-covered. **The platform is now sufficiently developed to demonstrate to prospects and customers**, and the current phase is split across two parallel tracks that should run concurrently, not sequentially — see [Two Parallel Tracks](#two-parallel-tracks) below. This is a deliberate shift: the platform should not continue accumulating engineering milestones indefinitely before any customer validation happens. See [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md) for full item-level technical detail.
+
+## Two Parallel Tracks
+
+### Track A — Product Reliability
+
+- ✅ Slack bounded delivery retries and `delivery_failed` — **completed** (see above).
+- ✅ Knowledge Collections — **completed** (Phase 4 above).
+- [ ] Manual verification of both in a staging/production-like environment before relying on them for prospect-facing demos (automated tests pass; a live Slack-workspace/portal walkthrough has not yet been separately confirmed post-implementation). See [../architecture/CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md)'s verification checklist.
+- [ ] Remaining operational follow-ups that don't block a demo but should not be forgotten: technical-metadata retention cleanup, monitoring/alerting for `delivery_failed`/redaction-callback failures. See [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
+- [ ] Security/reliability items unrelated to Slack (shared-`x-api-key` gap, encrypted-credential migration for Drive/Dropbox) — continue in parallel, not blocking the track below.
+
+### Track B — Company Validation
+
+- [ ] **Demo video and sales-ready demo environment** — see the dedicated section below. This is a major near-term priority, not a minor marketing task.
+- [ ] Prospect outreach and founder-led sales conversations using the demo video.
+- [ ] Customer feedback collection from those conversations.
+- [ ] Use that feedback to inform the next major product milestone — **before** committing to another large connector or infrastructure build.
+
+Track A's staging verification is a prerequisite for a credible Track B demo (item 1 in the sequence below); everything else in the two tracks can proceed concurrently.
 
 ## Immediate Next Priorities
 
-In rough dependency/impact order:
+In sequence:
 
-1. **Implement bounded Slack delivery retries and a terminal `delivery_failed` state**, replacing the never-restored sweep scheduler — a small number of immediate, in-flow retry attempts on Slack delivery failure, then a terminal status with the question/answer/context redacted and only dedup/audit metadata retained. No recurring sweep or cron scheduler is planned. See [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) and [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
-2. **Close the shared-`x-api-key`-only tenant-authorization gap** on AIKB's non-Slack management routes (`/ingest`, `/reindex`, `/documents/:clientId`, etc.) — the longest-standing open Critical/High finding from the original review. See [../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
-3. **Migrate Google Drive and Dropbox onto the encrypted `oauth_connections`/`oauth_credentials` model**, retiring the legacy plaintext `oauth_tokens` table entirely.
-4. **Decide and implement Milestone 6** (fuller knowledge-gap/conversation-metadata polish — system-vs-user `reportedBy`, richer origin metadata) — schema-ready, code not started.
-5. **Housekeeping**: delete AIKB's now-fully-inert legacy `routes/slack.js` file and its unused `SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET` config reads.
+1. **Verify the completed Slack delivery-failure handling and Knowledge Collections implementation** in staging/production-like conditions — run both automated suites, then walk through the manual checklist in [../architecture/CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md). This is the prerequisite for a credible demo, not new engineering work.
+2. **Finalize the demo environment and demo data** — a stable demo client/account, representative documents, General and Slack knowledge collections configured. See the demo-video milestone below for the full checklist.
+3. **Prepare and record the Relativity Systems demo video** — see [Demo Video and Sales-Ready Demo Environment](#demo-video-and-sales-ready-demo-environment) below and [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md)'s corresponding item.
+4. **Use the demo video for early prospect outreach and customer discovery** — founder-led sales conversations, website placement, direct outreach material.
+5. **Use feedback from those conversations to inform the next major product milestone** — do not pre-commit to the next connector before this feedback exists.
+6. **Then proceed with the next major connector or Knowledge Sync work** (see [Later Product Expansion](#later-product-expansion)), and continue the remaining Track A engineering items below in parallel throughout:
+   - Close the shared-`x-api-key`-only tenant-authorization gap on AIKB's non-Slack management routes (`/ingest`, `/reindex`, `/documents/:clientId`, etc.) — the longest-standing open Critical/High finding from the original review. See [../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
+   - Migrate Google Drive and Dropbox onto the encrypted `oauth_connections`/`oauth_credentials` model, retiring the legacy plaintext `oauth_tokens` table entirely.
+   - Decide and implement Milestone 6 (fuller knowledge-gap/conversation-metadata polish) — schema-ready, code not started.
+   - Housekeeping: delete AIKB's now-fully-inert legacy `routes/slack.js` file and its unused `SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET` config reads; address the Slack delivery-failure operational follow-ups tracked in [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
 
 Full item-level detail, grouped by priority and area: [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
+
+## Demo Video and Sales-Ready Demo Environment
+
+The demo video is a **major company milestone, not a minor marketing task**. It enables clear communication of the product, prospect outreach, founder-led sales, customer feedback, validation of the value proposition, website and outreach material, and early client acquisition. The current platform — document ingestion, business knowledge retrieval with source-backed answers, the team/client portal, knowledge collections, Slack integration (now including bounded delivery-failure handling), secure multi-tenant behavior — is sufficiently developed to demonstrate today. It should not wait until every future connector or integration is complete.
+
+**Acceptance criteria:**
+- A stable demo client/account exists.
+- Demo login and access flow are confirmed working.
+- Representative documents are loaded.
+- General and Slack knowledge collections are both demonstrated.
+- At least one successful portal query is shown.
+- At least one successful Slack question is shown.
+- Source citations are visible in at least one answer.
+- The demo explains the customer pain point.
+- The demo explains the value proposition.
+- The demo shows the current product honestly — without overstating future/unbuilt features.
+- The demo ends with a clear next step for prospects.
+- No private production customer data appears anywhere in the recording.
+- No API keys, tokens, internal IDs, logs, developer tools, or other secrets appear on screen.
+- The final video is suitable for the website, direct outreach, and live sales conversations.
+
+**Dependency checklist:**
+- [ ] Slack bounded-delivery implementation verified in a staging/production-like environment (Track A, item 1 above).
+- [ ] Knowledge Collections verified in the same environment.
+- [ ] Clean, stable, realistic demo data prepared (see [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md) for the detailed task list).
+- [ ] Polished demo account (no placeholder/test-looking content, no broken UI states).
+- [ ] Finalized founder strategy / business positioning for the narration.
+- [ ] Demo script written and reviewed.
+- [ ] Recording environment ready (screen capture, audio, browser/window setup free of unrelated tabs/notifications).
+- [ ] Final quality review before publishing (content accuracy, no leaked secrets/customer data, audio/video quality).
+
+No completion date is set here; none exists elsewhere in this roadmap to anchor it to. See [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md) for the corresponding work-breakdown backlog item.
 
 ## Dependencies
 
 - Migrating Google Drive/Dropbox onto encrypted credentials has no dependency on any other item and can proceed independently.
-- Bounded Slack delivery retries and the `delivery_failed` terminal state are independent of every other item — it's a self-contained change to the Slack delivery path, not a code change dependent on infrastructure decisions (no scheduler/cron infrastructure is needed at all under this design).
-- Any future connector (Teams, Gmail, Outlook) should wait until the shared-`x-api-key` gap (item 2 above) is closed or explicitly accepted as a known risk for that connector too, since each new connector otherwise inherits the same weak service-to-service trust model Slack's `/ask` path deliberately avoided. See [../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
+- The demo video's only hard dependency is Track A's staging verification step (item 1 above) — it does not depend on, and should not wait for, the shared-`x-api-key` gap, the Drive/Dropbox migration, Milestone 6, or any future connector.
+- Any future connector (Teams, Gmail, Outlook) should wait until the shared-`x-api-key` gap is closed or explicitly accepted as a known risk for that connector too, since each new connector otherwise inherits the same weak service-to-service trust model Slack's `/ask` path deliberately avoided. See [../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
 - Milestone 7 (direct messages, employee-level authorization) depends on the full Identity Link / Guest / Principal model from the original domain-model proposal, which does not exist today — this is a substantial build, not an incremental one.
 
 ## Later Product Expansion

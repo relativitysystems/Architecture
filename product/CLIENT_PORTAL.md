@@ -93,7 +93,7 @@ flowchart TD
 - A "chat welcome chips" UI element (example-question shortcuts) is commented out in the HTML but its click handler is still wired in JavaScript — dead code referencing a non-rendered element.
 - Several "TEMP DEBUG" `console.log`/`console.error` statements remain in production code paths (voice transcription).
 - Team member removal is soft-only (disable/revoke); there is no hard-delete route.
-- The Slack retry sweep's intended cron schedule was removed due to a hosting-plan limitation, and the plan to restore it has been superseded — the approved design is bounded, immediate delivery retries with a terminal `delivery_failed` state instead, with no scheduled recovery of any kind. See [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md) and [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md).
+- Slack delivery has no scheduled recovery of any kind, by design: bounded, immediate delivery retries with a terminal `delivery_failed` state are implemented in place of the removed sweep, so a sustained Slack outage can still lose an answer (the user must ask again), and AIKB-side redaction on that terminal state is best-effort, not guaranteed. See [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md) and [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md).
 
 ## Future Expansion
 

@@ -167,7 +167,7 @@ Indexes: PK; unique `state_hash`; index on `client_id`, `expires_at`. FKs: `clie
 ---
 
 ### `slack_event_log`
-**Purpose:** Slack Events dedup, audit trail, and delivery-retry state. **Rows:** 12. **Migration source:** `20260716_slack_event_log.sql`. **Target design note:** `status` is unconstrained `text`, so the approved bounded-retry design ([ADR-007](../../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) can add a terminal `delivery_failed` value without a migration; on reaching it, `question` is redacted/nulled while `external_event_id`, `client_id`, `status`, `attempt_count`, `error_code`, and `failed_at` are retained for dedup, auditing, and debugging. Not yet implemented — see [../../../roadmap/FEATURE_BACKLOG.md](../../../roadmap/FEATURE_BACKLOG.md) item H5.
+**Purpose:** Slack Events dedup, audit trail, and delivery-retry state. **Rows:** 12 (at last count; grows during normal operation). **Migration source:** `20260716_slack_event_log.sql`. **Implemented, [ADR-007](../../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md):** `status` is unconstrained `text`, so `delivery_failed` was added as a terminal value with no migration — `Relativity/services/slackEventLogService.js#markDeliveryFailed` sets it. On reaching it, `question` is redacted/nulled in the same UPDATE, while `external_event_id`, `client_id`, `status`, `attempt_count`, `error_code`, and `failed_at` are retained for dedup, auditing, and debugging, exactly as this ADR specifies. See [../../../roadmap/FEATURE_BACKLOG.md](../../../roadmap/FEATURE_BACKLOG.md) item H5, completed.
 
 | Column | Type | Nullable | Default |
 |---|---|---|---|
@@ -191,7 +191,7 @@ Indexes: PK; unique `state_hash`; index on `client_id`, `expires_at`. FKs: `clie
 | completed_at | timestamptz | YES | — |
 | failed_at | timestamptz | YES | — |
 
-Indexes: PK; unique `(provider, external_event_id)` (dedup guarantee); index `(client_id, received_at DESC)`; partial index `(status, received_at) WHERE status IN ('received','enqueued')` (sweep query support). FKs: `client_id → clients` (CASCADE), `connection_id → oauth_connections` (CASCADE, **unindexed**). **Performance advisor:** `idx_slack_event_log_client_id` flagged unused.
+Indexes: PK; unique `(provider, external_event_id)` (dedup guarantee); index `(client_id, received_at DESC)`; partial index `(status, received_at) WHERE status IN ('received','enqueued')` (originally added for the sweep's `listStuckForRetry` query — that query no longer exists in either repository after ADR-007's implementation removed the sweep, so this index now has **no known application-code reader**; candidate for a future cleanup pass, not addressed by this documentation update). FKs: `client_id → clients` (CASCADE), `connection_id → oauth_connections` (CASCADE, **unindexed**). **Performance advisor:** `idx_slack_event_log_client_id` flagged unused.
 
 ---
 
