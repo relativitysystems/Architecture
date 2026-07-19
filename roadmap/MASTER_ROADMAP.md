@@ -70,6 +70,8 @@ Full item-level detail, grouped by priority and area: [FEATURE_BACKLOG.md](FEATU
 
 The demo video is a **major company milestone, not a minor marketing task**. It enables clear communication of the product, prospect outreach, founder-led sales, customer feedback, validation of the value proposition, website and outreach material, and early client acquisition. The current platform — document ingestion, business knowledge retrieval with source-backed answers, the team/client portal, knowledge collections, Slack integration (now including bounded delivery-failure handling), secure multi-tenant behavior — is sufficiently developed to demonstrate today. It should not wait until every future connector or integration is complete.
 
+This section tracks status, acceptance criteria, and dependencies only. The full narrative strategy — demo objective, fictional company storyline, feature-by-feature script framework, financial-value guidance, video structure, script/account-prep checklists, and trust/honesty requirements — lives in the dedicated document: [../go-to-market/DEMO_VIDEO_STRATEGY.md](../go-to-market/DEMO_VIDEO_STRATEGY.md).
+
 **Acceptance criteria:**
 - A stable demo client/account exists.
 - Demo login and access flow are confirmed working.
@@ -90,9 +92,9 @@ The demo video is a **major company milestone, not a minor marketing task**. It 
 - [ ] Slack bounded-delivery implementation verified in a staging/production-like environment (Track A, item 1 above).
 - [ ] Knowledge Collections verified in the same environment.
 - [ ] Clean, stable, realistic demo data prepared (see [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md) for the detailed task list).
-- [ ] Polished demo account (no placeholder/test-looking content, no broken UI states).
-- [ ] Finalized founder strategy / business positioning for the narration.
-- [ ] Demo script written and reviewed.
+- [ ] Polished demo account (no placeholder/test-looking content, no broken UI states) — see [../go-to-market/DEMO_VIDEO_STRATEGY.md](../go-to-market/DEMO_VIDEO_STRATEGY.md)'s account preparation checklist.
+- [x] Founder strategy / business positioning for the narration — finalized in [../go-to-market/DEMO_VIDEO_STRATEGY.md](../go-to-market/DEMO_VIDEO_STRATEGY.md).
+- [ ] Full narration and screen-action script written and reviewed, following [../go-to-market/DEMO_VIDEO_STRATEGY.md](../go-to-market/DEMO_VIDEO_STRATEGY.md)'s script requirements.
 - [ ] Recording environment ready (screen capture, audio, browser/window setup free of unrelated tabs/notifications).
 - [ ] Final quality review before publishing (content accuracy, no leaked secrets/customer data, audio/video quality).
 
@@ -119,6 +121,7 @@ Not scheduled, but a plausible next step given the current architecture (see [CO
 
 - [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md) — item-level technical backlog
 - [CONNECTOR_ROADMAP.md](CONNECTOR_ROADMAP.md) — connector-by-connector sequencing
+- [../go-to-market/DEMO_VIDEO_STRATEGY.md](../go-to-market/DEMO_VIDEO_STRATEGY.md) — full demo narrative strategy, storyline, and script framework
 - [../architecture/SYSTEM_OVERVIEW.md](../architecture/SYSTEM_OVERVIEW.md)
 - [../decisions/](../decisions/)
 - [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md)

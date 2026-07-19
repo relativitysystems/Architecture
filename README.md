@@ -46,6 +46,8 @@ Architecture/
 │   └── CONNECTOR_ROADMAP.md           — connector-by-connector implementation status
 ├── history/
 │   └── ARCHITECTURE_REVIEW_PHASES.md  — the original review's phases, findings, and milestones
+├── go-to-market/
+│   └── DEMO_VIDEO_STRATEGY.md         — demo video narrative strategy, storyline, and script framework
 ├── vision/
 │   ├── COMPANY_MISSION.md             — (not yet populated — no source material in scope)
 │   ├── FOUNDING_PRINCIPLES.md         — (not yet populated — no source material in scope)
@@ -72,6 +74,7 @@ Architecture/
 | `decisions/` | Architecture decision records — what was decided, why, what alternatives were considered, and what evidence shows it was actually implemented (or not). |
 | `roadmap/` | Prioritized, evidence-based backlog (`FEATURE_BACKLOG.md`), connector sequencing (`CONNECTOR_ROADMAP.md`), and the high-level sequence tying them together (`MASTER_ROADMAP.md`). |
 | `history/` | The original architecture review's phases, findings, and milestone-by-milestone implementation record — preserved so historical reasoning isn't lost, clearly labeled so it isn't mistaken for current architecture. |
+| `go-to-market/` | Go-to-market content: the demo video's narrative strategy, fictional-company storyline, feature-by-feature script framework, and production checklists. A business/content deliverable, not architecture — see `roadmap/MASTER_ROADMAP.md` for its milestone-level status and acceptance criteria. |
 | `vision/` | Company mission, founding principles, and product vision. These are stubs today — no company-level source material was in scope to populate them from. |
 | `ideas/` | An open idea vault for unvetted future concepts. A stub today, intentionally not populated since its content is by definition not yet evidenced in either codebase. |
 
