@@ -86,8 +86,8 @@ The key is validated as exactly 64 hex characters (32 bytes) and re-read from `p
 
 ## Current Risks
 
-1. **Cross-tenant Google Drive access via the shared API key** — `GET /api/google-drive/files/:clientId` / `/file/:clientId/:fileId` are gated only by the shared static key, with no per-client entitlement check on the `clientId` path parameter.
-2. **Non-constant-time secret comparisons** in several places, contrasted with the newer HMAC/cron code that correctly uses `crypto.timingSafeEqual`: the shared API key checks in both repos (`key !== process.env.API_KEY` style), and the admin password/session-signature checks in `Relativity/middleware/adminAuth.js` and `routes/admin.js`.
+1. ~~**Cross-tenant Google Drive access via the shared API key**~~ — **reclassified as dead code, not a live risk.** `GET /api/google-drive/files/:clientId` / `/file/:clientId/:fileId` are indeed gated only by the shared static key with no per-client entitlement check, but `API_KEY` is configured nowhere in either repo's env, so both routes 401 unconditionally — and nothing calls them anyway (the portal's real Drive import path uses `clientAuth` + a browser-obtained Picker token via different routes/services entirely). No active exploit path today. Tracked as dead-code cleanup: [FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) L9.
+2. ~~**Non-constant-time secret comparisons**~~ — **resolved.** The shared API key checks in both repos and the admin password/session-signature checks in `Relativity/middleware/adminAuth.js` and `routes/admin.js` now use `crypto.timingSafeEqual` (length-checked first), matching the pattern already used by the HMAC/cron code. See [FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) H3.
 3. **No RLS anywhere**, combined with universal service-role-key usage — tenant isolation has no database-level backstop; a single missed `.eq('client_id', ...)` filter in future code is a full cross-tenant data leak.
 4. **No CORS policy and no general rate limiting** on either app, including on the admin login and Supabase-backed portal login paths (only password-reset has any throttling, and it is process-local/non-distributed).
 5. **Unsigned OAuth state for Google Drive and Dropbox**, unlike the hardened, hashed, server-stored state design already built and proven for Slack.
@@ -98,8 +98,7 @@ The key is validated as exactly 64 hex characters (32 bytes) and re-read from `p
 ## Future Improvements
 
 - Extend AES-256-GCM encrypted storage (`oauth_connections`/`oauth_credentials`) to Google Drive and Dropbox, retiring the legacy plaintext `oauth_tokens` path entirely.
-- Add a per-client entitlement check to the Google Drive `files`/`file` routes, closing the shared-API-key cross-tenant gap.
-- Replace non-constant-time secret comparisons with `crypto.timingSafeEqual` consistently across both repositories.
+- Remove or properly wire up the orphaned Google Drive `files`/`file` routes (see Current Risks item 1 above).
 - Introduce Row-Level Security as defense-in-depth on the highest-sensitivity tables (`oauth_tokens`, `oauth_credentials`, `knowledge_chunks`), without removing the existing application-layer checks.
 - Add general-purpose rate limiting (login, admin login, and the AIKB API-key-gated routes) and an explicit CORS policy.
 - Backport the hashed, server-stored OAuth-state pattern from Slack to Google Drive and Dropbox.
