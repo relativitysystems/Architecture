@@ -29,7 +29,7 @@ Every other route (`/query`, `/gaps`, `/reindex`, `DELETE /document/:id`) has no
 
 ## Error Handling, Retries, Timeouts
 
-- **Relativity → AIKB (`/ask`)**: `AIKB_ASK_TIMEOUT_MS` (default 4000ms). On failure, the `slack_event_log` row stays at `received`, Slack still gets an immediate `200` ack, and recovery depends on either AIKB's own Inngest `onFailure` callback or the delivery-retry sweep — see [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md) for the sweep's current unscheduled status.
+- **Relativity → AIKB (`/ask`)**: `AIKB_ASK_TIMEOUT_MS` (default 4000ms). On failure, the `slack_event_log` row stays at `received`, Slack still gets an immediate `200` ack, and recovery today depends on AIKB's own Inngest `onFailure` callback — the delivery-retry sweep that could otherwise recover this row is unscheduled and will not be restored; see [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md) and [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) for the approved bounded-retry/`delivery_failed` design that replaces it.
 - **AIKB → Relativity (`/deliver`)**: `RELATIVITY_DELIVER_TIMEOUT_MS` (default 8000ms). AIKB's Inngest function retries the whole step up to 3 times on failure; after retries are exhausted, `onFailure` posts an error payload to `/deliver` so the user isn't left silent.
 - **Portal path (`/query`)**: no automatic retry; a failed request surfaces as an error to the browser.
 - No route in either direction implements exponential backoff or a circuit breaker.

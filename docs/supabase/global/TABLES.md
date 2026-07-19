@@ -167,7 +167,7 @@ Indexes: PK; unique `state_hash`; index on `client_id`, `expires_at`. FKs: `clie
 ---
 
 ### `slack_event_log`
-**Purpose:** Slack Events dedup, audit trail, and delivery-retry state. **Rows:** 12. **Migration source:** `20260716_slack_event_log.sql`.
+**Purpose:** Slack Events dedup, audit trail, and delivery-retry state. **Rows:** 12. **Migration source:** `20260716_slack_event_log.sql`. **Target design note:** `status` is unconstrained `text`, so the approved bounded-retry design ([ADR-007](../../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) can add a terminal `delivery_failed` value without a migration; on reaching it, `question` is redacted/nulled while `external_event_id`, `client_id`, `status`, `attempt_count`, `error_code`, and `failed_at` are retained for dedup, auditing, and debugging. Not yet implemented — see [../../../roadmap/FEATURE_BACKLOG.md](../../../roadmap/FEATURE_BACKLOG.md) item H5.
 
 | Column | Type | Nullable | Default |
 |---|---|---|---|

@@ -41,7 +41,7 @@ Relativity/
 | `routes/team.js` | Team member management |
 | `routes/leads.js` | Public lead-capture form endpoint |
 | `routes/collections.js` | Knowledge-collection CRUD/assignment proxy to AIKB |
-| `routes/integrations/slack.js` | Slack OAuth, Events, delivery callback, collections allow-list, cron sweep |
+| `routes/integrations/slack.js` | Slack OAuth, Events, delivery callback, collections allow-list, cron sweep (deprecated — superseded by bounded-retry design, see [ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) |
 
 ## Services — verification status per row
 
@@ -56,7 +56,7 @@ Relativity/
 | `slackEventsService.js`, `slackIntegrationService.js`, `slackSignatureService.js`, `slackAnswerFormatter.js`, `slackDeliverService.js`, `slackDeliveryService.js`, `slackQuestionService.js` | Slack pipeline: signature verification, event handling, question forwarding to AIKB `/ask`, answer delivery back to Slack | **Historical** |
 | `aikbService.js` | HTTP client for AIKB's management API (documents, jobs, analytics) | **Code Verified** (partial — confirms Relativity never queries AIKB tables directly except via `slackCollectionAccessService`) |
 | `aikbAskClient.js` | Signed HMAC envelope client for AIKB `/api/knowledge/ask` (Slack path) | **Structure Verified** |
-| `cronSweepAuthService.js` | Bearer-secret auth for the Slack delivery-retry sweep endpoint | **Structure Verified** |
+| `cronSweepAuthService.js` | Bearer-secret auth for the Slack delivery-retry sweep endpoint (deprecated; sweep restoration was superseded by the bounded-retry/`delivery_failed` design, [ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) | **Structure Verified** |
 | `serviceRequestAuth.js` | HMAC-signed service-request envelope (shared design with AIKB's copy) | **Historical** |
 | `dropboxService.js`, `googleDriveService.js`, `googleDriveImportService.js` | Legacy provider integrations (plaintext `oauth_tokens`) | **Structure Verified** |
 | `emailService.js` | Transactional email (Resend/SMTP) | **Structure Verified** |

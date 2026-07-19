@@ -22,7 +22,7 @@ The platform boundary the codebase actually implements today is: **Relativity ow
 |---|---|
 | Runtime | Node/Express, single serverless function on Vercel |
 | Entry points | `app.js` (the app), `server.js` (local dev), `api/index.js` (Vercel wrapper), `vercel.json` (routes `/api/*`, `/auth/*`, `/admin/*`) |
-| Major route groups | `routes/auth.js` (session, OAuth for Google/Dropbox, invites, password reset — legacy Slack routes retired to `410`), `routes/api.js` (uploads, chat/query proxy, gaps proxy, analytics), `routes/integrations/slack.js` (Slack OAuth, events, delivery, sweep), `routes/team.js`, `routes/admin.js` |
+| Major route groups | `routes/auth.js` (session, OAuth for Google/Dropbox, invites, password reset — legacy Slack routes retired to `410`), `routes/api.js` (uploads, chat/query proxy, gaps proxy, analytics), `routes/integrations/slack.js` (Slack OAuth, events, delivery, and a deprecated sweep endpoint pending removal — see [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md)), `routes/team.js`, `routes/admin.js` |
 | Database | "Global" Supabase project — `clients`, `client_members`, `team_invites`, `client_member_sessions`, `oauth_connections`/`oauth_credentials`, `oauth_states`, `slack_event_log`, `oauth_tokens` (legacy, Google Drive/Dropbox only), `document_import_log` |
 | External dependencies | Supabase (Global project), AIKB REST API, OpenAI (audio transcription only), Slack OAuth + Events + Web API, Google Drive API, Dropbox API |
 
@@ -103,7 +103,7 @@ flowchart LR
 - **Relativity**: single Vercel serverless function (`api/index.js` → `app.js`); static assets served by Vercel's CDN. No independent worker process.
 - **AIKB**: single Railway web process; Inngest functions run **in-process**, invoked via webhook callback to `/api/inngest` — there is no separate worker deployment.
 - **Databases**: two independent Supabase projects — the Global project (Relativity-owned identity/tenancy/integrations) and the AIKB project (knowledge data). No cross-project foreign keys; cross-project references are plain UUID columns.
-- **Scheduled jobs**: Relativity's Slack delivery-retry sweep (`GET /api/integrations/slack/sweep`) is designed as a Vercel Cron job but is **currently unscheduled** — the project's Vercel Hobby plan rejects a sub-daily cron schedule. See [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md) and [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md).
+- **Scheduled jobs**: none are planned for Slack delivery. Relativity's Slack delivery-retry sweep (`GET /api/integrations/slack/sweep`) was designed as a Vercel Cron job but has been **unscheduled** since production launch — the project's Vercel Hobby plan rejects a sub-daily cron schedule. Rather than restoring that scheduler, the approved design is bounded, immediate delivery retries followed by a terminal `delivery_failed` status, requiring no scheduler at all — see [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md), [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md), and [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md).
 
 ## Cross-Repository Request Flows
 
@@ -214,7 +214,7 @@ These affect the whole architecture, not just one document — see the linked do
 
 - **No database-level tenant isolation (RLS) anywhere.** Every isolation check is application-layer `client_id` filtering; both Supabase projects are accessed exclusively with the service-role key. See [SECURITY.md](SECURITY.md).
 - **The cross-repository contract is not unified.** Portal traffic uses a Supabase JWT + shared `x-api-key`; Slack traffic uses a narrow, additive HMAC-signed envelope scoped only to `/ask`/`/deliver`; every other AIKB management route (`/ingest`, `/reindex`, `/documents/:clientId`, etc.) still trusts the shared `x-api-key` alone. See [SERVICE_CONTRACTS.md](SERVICE_CONTRACTS.md) and [SECURITY.md](SECURITY.md).
-- **Slack's automated delivery-retry sweep is currently unscheduled** (Vercel Hobby plan tier constraint) — a stuck event is only recovered via AIKB's own Inngest `onFailure` callback, not the independent sweep backstop. See [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md).
+- **Slack's automated delivery-retry sweep is unscheduled and will not be restored.** The product decision is bounded, immediate delivery retries with a terminal `delivery_failed` state instead of a scheduled sweep — see [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md). Until that is implemented, a stuck event is only recovered via AIKB's own Inngest `onFailure` callback. See [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md).
 - **Google Drive and Dropbox remain on the legacy plaintext `oauth_tokens` table** — only Slack has been migrated to the encrypted `oauth_connections`/`oauth_credentials` model. See [SECURITY.md](SECURITY.md).
 - **In-process Inngest** — AIKB's background jobs share the same process as its REST API; there is no independently scaled worker.
 

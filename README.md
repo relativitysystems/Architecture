@@ -38,7 +38,8 @@ Architecture/
 │   ├── ADR-003-SLACK-EVENTS-LIVE-IN-RELATIVITY.md
 │   ├── ADR-004-SIGNED-SERVICE-REQUESTS.md
 │   ├── ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md
-│   └── ADR-006-OAUTH-CREDENTIAL-ENCRYPTION.md
+│   ├── ADR-006-OAUTH-CREDENTIAL-ENCRYPTION.md
+│   └── ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md
 ├── roadmap/
 │   ├── MASTER_ROADMAP.md              — high-level architecture/product sequence
 │   ├── FEATURE_BACKLOG.md             — evidence-based technical backlog, prioritized
@@ -83,5 +84,5 @@ Architecture/
 ## Future Extension Points
 
 - Populate `vision/` and `ideas/` once company-level (not codebase-level) source material is available to verify against.
-- Add new ADRs to `decisions/` as further significant architecture decisions are made (e.g., restoring the Slack delivery-retry sweep scheduler, migrating Google Drive/Dropbox to encrypted credentials).
+- Add new ADRs to `decisions/` as further significant architecture decisions are made (e.g., migrating Google Drive/Dropbox to encrypted credentials). The Slack delivery-retry sweep question is already decided — see [ADR-007](decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md).
 - Consider a lightweight process (e.g., a documentation-review step alongside major PRs to `AIKB` or `Relativity`) to keep the `architecture/` documents from drifting out of sync with the code they describe.

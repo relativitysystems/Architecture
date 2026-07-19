@@ -26,13 +26,13 @@ What's built:
 
 ## Current Phase
 
-The platform is between Milestone 4 (shipped) and Milestones 5–7 (not started). The immediate operational gap from Milestone 4's production rollout — the Slack delivery-retry sweep being unscheduled due to a Vercel plan-tier limitation — is the highest-priority open item, since it's a regression from the milestone's own definition of done, not a deferred feature. See [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
+The platform is between Milestone 4 (shipped) and Milestones 5–7 (not started). Milestone 4's production rollout left the Slack delivery-retry sweep unscheduled (a Vercel plan-tier limitation); rather than restoring that scheduler, the product decision is to **not** run a scheduled sweep at all — see [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md). The highest-priority open item is implementing bounded, immediate Slack delivery retries with a terminal `delivery_failed` state in their place. See [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
 
 ## Immediate Next Priorities
 
 In rough dependency/impact order:
 
-1. **Restore the Slack delivery-retry sweep's scheduler** (Vercel Pro upgrade, an external scheduler, or a Railway-side scheduled job in AIKB) — closes an operational regression in Milestone 4's own definition of done. See [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
+1. **Implement bounded Slack delivery retries and a terminal `delivery_failed` state**, replacing the never-restored sweep scheduler — a small number of immediate, in-flow retry attempts on Slack delivery failure, then a terminal status with the question/answer/context redacted and only dedup/audit metadata retained. No recurring sweep or cron scheduler is planned. See [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) and [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
 2. **Close the shared-`x-api-key`-only tenant-authorization gap** on AIKB's non-Slack management routes (`/ingest`, `/reindex`, `/documents/:clientId`, etc.) — the longest-standing open Critical/High finding from the original review. See [../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
 3. **Migrate Google Drive and Dropbox onto the encrypted `oauth_connections`/`oauth_credentials` model**, retiring the legacy plaintext `oauth_tokens` table entirely.
 4. **Decide and implement Milestone 6** (fuller knowledge-gap/conversation-metadata polish — system-vs-user `reportedBy`, richer origin metadata) — schema-ready, code not started.
@@ -43,7 +43,7 @@ Full item-level detail, grouped by priority and area: [FEATURE_BACKLOG.md](FEATU
 ## Dependencies
 
 - Migrating Google Drive/Dropbox onto encrypted credentials has no dependency on any other item and can proceed independently.
-- Restoring the sweep scheduler is independent of every other item — it's an infrastructure/deployment decision, not a code change.
+- Bounded Slack delivery retries and the `delivery_failed` terminal state are independent of every other item — it's a self-contained change to the Slack delivery path, not a code change dependent on infrastructure decisions (no scheduler/cron infrastructure is needed at all under this design).
 - Any future connector (Teams, Gmail, Outlook) should wait until the shared-`x-api-key` gap (item 2 above) is closed or explicitly accepted as a known risk for that connector too, since each new connector otherwise inherits the same weak service-to-service trust model Slack's `/ask` path deliberately avoided. See [../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
 - Milestone 7 (direct messages, employee-level authorization) depends on the full Identity Link / Guest / Principal model from the original domain-model proposal, which does not exist today — this is a substantial build, not an incremental one.
 
