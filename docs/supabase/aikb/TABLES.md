@@ -1,6 +1,6 @@
 # AIKB Supabase — Table Reference
 
-All data **Database Verified**. Row counts are point-in-time (2026-07-18). All 8 tables have RLS **enabled with zero policies** (see [RLS.md](RLS.md)); all grant full `arwdDxtm` to `anon`/`authenticated`/`service_role` (Supabase default).
+All data **Database Verified**. Row counts are point-in-time (2026-07-20). All 9 tables (8 live + 1 dropped legacy, see below) have RLS **enabled with zero policies** (see [RLS.md](RLS.md)); all grant full `arwdDxtm` to `anon`/`authenticated`/`service_role` (Supabase default).
 
 ---
 
@@ -65,7 +65,7 @@ Indexes: PK; index on `client_id`. **No FK constraint** on `document_id → know
 ---
 
 ### `knowledge_chat_sessions`
-**Purpose:** one row per chat conversation (portal or Slack). **Rows:** 28. **Migration source:** `003_chat_history.sql`; `member_id` added in `004`; `origin`/`origin_metadata`/`idempotency_key` added in `005`.
+**Purpose:** one row per chat conversation. **Rows:** 17 (1 `portal`, 16 `origin IS NULL` pre-Milestone-4 legacy). **Migration source:** `003_chat_history.sql`; `member_id` added in `004`; `origin`/`origin_metadata`/`idempotency_key` added in `005`. **Backlog M13 (revised):** Slack-originated conversations (`origin: 'slack'`/`'slack_dm'`) are no longer persisted here at all — `services/runKnowledgeQuery.js`'s `persistConversation: false` mode (used for all Slack traffic) skips session/message creation entirely, rather than creating a row and filtering it out of portal reads as the original M13 implementation did. 14 pre-existing Slack-origin rows (12 `slack` + 2 `slack_dm`) were hard-deleted as part of this revision; the `origin` column and its values remain valid for any future non-Slack caller.
 
 | Column | Type | Nullable | Default |
 |---|---|---|---|
@@ -85,7 +85,7 @@ Indexes: PK; index `(client_id, created_at DESC)`; index `(client_id, member_id,
 ---
 
 ### `knowledge_chat_messages`
-**Purpose:** individual messages within a chat session. **Rows:** 116. **Migration source:** `003_chat_history.sql`; `member_id` added in `004`.
+**Purpose:** individual messages within a chat session. **Rows:** 94. **Migration source:** `003_chat_history.sql`; `member_id` added in `004`. **Backlog M13 (revised):** 28 pre-existing Slack-origin messages (tied to the 14 purged `knowledge_chat_sessions` rows above) were hard-deleted; no new Slack message rows are created going forward (see `knowledge_chat_sessions` above).
 
 | Column | Type | Nullable | Default |
 |---|---|---|---|
@@ -124,6 +124,25 @@ Indexes: PK; index `(client_id, member_id, session_id, created_at)`, `(client_id
 | idempotency_key | text | YES | — |
 
 Indexes: PK; index `(client_id, member_id, created_at DESC)`, `(client_id, status, created_at DESC)`; unique partial `(idempotency_key) WHERE idempotency_key IS NOT NULL`. FKs: `session_id → knowledge_chat_sessions` (SET NULL, **unindexed**), `message_id → knowledge_chat_messages` (SET NULL, **unindexed**).
+
+---
+
+### `knowledge_slack_request_log`
+**Purpose:** minimal operational/dedup metadata for the Slack ask flow (Backlog M13, revised) — replaces the old "look up the chat session by idempotency_key" mechanism now that Slack conversations are never persisted (see `knowledge_chat_sessions` above). **Rows:** 0 (new table). **Migration source:** `009_slack_request_log.sql`.
+
+| Column | Type | Nullable | Default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| client_id | uuid | NO | — |
+| idempotency_key | text | NO | — |
+| origin | text | NO | — (CHECK: `slack`/`slack_dm`) |
+| status | text | NO | 'processing' (CHECK: `processing`/`delivered`/`failed`) |
+| attempt_count | integer | NO | 1 |
+| error_category | text | YES | — |
+| created_at | timestamptz | NO | now() |
+| updated_at | timestamptz | NO | now() |
+
+Indexes: PK; unique `(idempotency_key)` (claim-before-enqueue dedup — `routes/knowledge.js` `POST /ask` claims a row before sending the `knowledge/slack.question.requested` Inngest event, so a retried `/ask` call never triggers a second LLM call/Slack reply); index `(client_id, created_at DESC)`. No FK on `client_id` (cross-project reference to Global's `clients`, plain UUID by design, same pattern as `knowledge_chat_sessions.member_id`). **Never stores** a question, answer, citation, or chunk/document text — only the columns listed above.
 
 ---
 

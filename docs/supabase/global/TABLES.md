@@ -1,6 +1,6 @@
 # Global Supabase — Table Reference
 
-All data **Database Verified** (live schema inspection) unless marked. Row counts are point-in-time snapshots from this audit (2026-07-18) and will drift. Every table has RLS **enabled with zero policies** — see [RLS.md](RLS.md) for what this means in practice. Every table is granted full `arwdDxtm` privileges to `anon`/`authenticated`/`service_role`/`postgres` (Supabase's default schema-wide grant, not a deliberate per-table choice).
+All data **Database Verified** (live schema inspection) unless marked. Row counts are point-in-time snapshots from this audit (2026-07-20) and will drift. Every table has RLS **enabled with zero policies** — see [RLS.md](RLS.md) for what this means in practice. Every table is granted full `arwdDxtm` privileges to `anon`/`authenticated`/`service_role`/`postgres` (Supabase's default schema-wide grant, not a deliberate per-table choice).
 
 ---
 
@@ -167,7 +167,9 @@ Indexes: PK; unique `state_hash`; index on `client_id`, `expires_at`. FKs: `clie
 ---
 
 ### `slack_event_log`
-**Purpose:** Slack Events dedup, audit trail, and delivery-retry state. **Rows:** 12 (at last count; grows during normal operation). **Migration source:** `20260716_slack_event_log.sql`. **Implemented, [ADR-007](../../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md):** `status` is unconstrained `text`, so `delivery_failed` was added as a terminal value with no migration — `Relativity/services/slackEventLogService.js#markDeliveryFailed` sets it. On reaching it, `question` is redacted/nulled in the same UPDATE, while `external_event_id`, `client_id`, `status`, `attempt_count`, `error_code`, and `failed_at` are retained for dedup, auditing, and debugging, exactly as this ADR specifies. See [../../../roadmap/FEATURE_BACKLOG.md](../../../roadmap/FEATURE_BACKLOG.md) item H5, completed.
+**Purpose:** Slack Events dedup, audit trail, and delivery-retry state. **Rows:** 15 (at last count; grows during normal operation). **Migration source:** `20260716_slack_event_log.sql`; `question` dropped in `20260720_slack_event_log_drop_question.sql`. **Implemented, [ADR-007](../../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md):** `status` is unconstrained `text`, so `delivery_failed` was added as a terminal value with no migration — `Relativity/services/slackEventLogService.js#markDeliveryFailed` sets it. `external_event_id`, `client_id`, `status`, `attempt_count`, `error_code`, and `failed_at` are retained for dedup, auditing, and debugging, exactly as this ADR specifies. See [../../../roadmap/FEATURE_BACKLOG.md](../../../roadmap/FEATURE_BACKLOG.md) item H5, completed.
+
+**Backlog M13 (revised):** the `question` column — the one place on the Relativity side that stored raw extracted Slack question text (previously redacted/nulled only on reaching `delivery_failed`) — was dropped entirely. It was written on every `insertReceived` call but never read back by any downstream code path, so removing it is a pure reduction in stored content, not a functional change. This table now stores only operational/dedup metadata; no question, answer, or Slack payload text is ever persisted here.
 
 | Column | Type | Nullable | Default |
 |---|---|---|---|
@@ -180,7 +182,6 @@ Indexes: PK; unique `state_hash`; index on `client_id`, `expires_at`. FKs: `clie
 | channel_id | text | NO | — |
 | event_ts | text | NO | — |
 | thread_ts | text | YES | — |
-| question | text | YES | — |
 | idempotency_key | text | NO | — |
 | status | text | NO | 'received' |
 | attempt_count | integer | NO | 0 |
