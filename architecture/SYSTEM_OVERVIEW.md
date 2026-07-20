@@ -34,7 +34,7 @@ Full detail: [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md) (integrations), [S
 |---|---|
 | Runtime | Node/Express, single process on Railway |
 | Entry points | `server.js` — mounts `/health`, `/api/inngest`, `/api/knowledge` (`routes/knowledge.js`), `/api/slack` (retired, `410`-only) |
-| Major route groups | `routes/knowledge.js` — `x-api-key`-gated management routes (ingest/reindex/delete/list/jobs/summary/analytics/collections), `requireMemberContext`-gated `/query`/`/chat/*`/`/gaps`, `requireServiceRequest`-gated `/ask` (Slack) |
+| Major route groups | `routes/knowledge.js` — `x-api-key`-gated management routes (ingest/reindex/delete/list/jobs/summary/analytics/stats/collections), `requireMemberContext`-gated `/query`/`/chat/*`/`/gaps`, `requireServiceRequest`-gated `/ask` (Slack) |
 | Database | AIKB's own Supabase project — `knowledge_documents`, `knowledge_chunks` (pgvector), `knowledge_ingestion_jobs`, `knowledge_chat_sessions`, `knowledge_chat_messages`, `knowledge_gaps`, `knowledge_collections`. Read-only access to Relativity's Global project for `auth.getUser()`, `clients`, `client_members` |
 | External dependencies | OpenAI (embeddings + chat), Inngest (in-process), Supabase (two projects) |
 

@@ -175,7 +175,7 @@ When an answer is classified as a knowledge gap, any model-hallucinated `Source:
 - **No deduplication on `knowledge_gaps` inserts** — `createKnowledgeGap` is a plain `INSERT`; the `idempotency_key` column added for this purpose (migration 005) is not yet used by any write path.
 - **No OCR / scanned-PDF support.** PDF parsing extracts the embedded text layer only (`pdf-parse`); image-only or scanned documents produce no usable text.
 - **Single in-process Inngest instance** — background jobs run inside the same Express process as the REST API; there is no independently-scaled worker deployment.
-- **Two overlapping analytics endpoints** (`GET /summary/:clientId`, `GET /analytics/:clientId`) compute similar aggregates independently on every request, with no shared computation or caching layer — see [KNOWLEDGE_ANALYTICS.md](../product/KNOWLEDGE_ANALYTICS.md).
+- ~~Two overlapping analytics endpoints (`GET /summary/:clientId`, `GET /analytics/:clientId`) compute similar aggregates independently on every request, with no shared computation or caching layer~~ **Resolved (backlog L5).** Added `GET /stats/:clientId` (`getClientKnowledgeStats`), which computes each underlying table exactly once instead of the up-to-4x `knowledge_ingestion_jobs` reads and 2x `knowledge_chat_messages`/`knowledge_gaps` reads the three routes (`/summary`, `/analytics`, and `/jobs`) previously produced when called together for the same client — which Relativity's admin dashboard did, for every client, on every page load. `/summary`/`/analytics`/`/jobs` are unchanged and still used independently elsewhere. See [KNOWLEDGE_ANALYTICS.md](../product/KNOWLEDGE_ANALYTICS.md).
 
 ## Future Extension Points
 

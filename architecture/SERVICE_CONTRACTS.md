@@ -162,12 +162,12 @@ Every other route (`/query`, `/gaps`, `/reindex`, `DELETE /document/:id`) has no
 
 ---
 
-### GET `/api/knowledge/documents/:clientId`, `/jobs/:clientId`, `/summary/:clientId`, `/analytics/:clientId`
+### GET `/api/knowledge/documents/:clientId`, `/jobs/:clientId`, `/summary/:clientId`, `/analytics/:clientId`, `/stats/:clientId`
 
 **Owner:** AIKB · **Caller:** Relativity
 **Authentication:** `x-api-key` only.
 **Authorization rules:** same trust-Relativity-upstream model as `/ingest` — no independent per-caller entitlement check. See [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) item H4.
-**Notes:** `/summary` and `/analytics` compute overlapping aggregates independently, on every call, with no shared computation layer — see [../product/KNOWLEDGE_ANALYTICS.md](../product/KNOWLEDGE_ANALYTICS.md).
+**Notes:** `/stats` (backlog L5) is a superset of `/summary` + `/analytics` + `/jobs`, added so a caller needing more than one of them for the same client (Relativity's admin routes) can get all of it in one round trip instead of independently re-querying the same tables — `getClientKnowledgeStats` computes each underlying table exactly once. `/summary`, `/analytics`, and `/jobs` are unchanged and still used standalone elsewhere (the client portal calls `/analytics` alone). See [../product/KNOWLEDGE_ANALYTICS.md](../product/KNOWLEDGE_ANALYTICS.md).
 
 ---
 
