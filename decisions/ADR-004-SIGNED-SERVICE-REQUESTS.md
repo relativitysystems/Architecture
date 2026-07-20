@@ -1,10 +1,10 @@
 # ADR-004: Signed service requests between Relativity and AIKB
 
 ## Status
-Partially Implemented — the additive envelope now covers `/ask`, `/deliver`, and (backlog H4) ten of AIKB's clientId-scoped management routes; four read-only aggregate/reporting routes remain shared-key-only (see Consequences), and the full platform described below remains **Proposed**.
+Partially Implemented — the additive envelope now covers `/ask`, `/deliver`, and (backlog H4, completed) all 14 of AIKB's clientId-scoped management/reporting routes; no AIKB route relies solely on the shared `x-api-key` anymore (see Consequences), but the full platform described below remains **Proposed**.
 
 ## Date
-Undated (proposal); narrow implementation shipped 2026-07-14 to 2026-07-16 (Milestone 4); extended to the management routes 2026-07-19 (backlog H4)
+Undated (proposal); narrow implementation shipped 2026-07-14 to 2026-07-16 (Milestone 4); extended to ten management routes 2026-07-19 (backlog H4, first pass); extended to the remaining four reporting routes 2026-07-19 (backlog H4, completed)
 
 ## Context
 
@@ -18,9 +18,9 @@ When Slack's Milestone 4 work needed AIKB to trust a per-request `clientId` and 
 
 Envelope shape: `{ requestId, issuedAt, expiresAt, clientId, idempotencyKey, signature }`, signed with `HMAC-SHA256` over `requestId.issuedAt.expiresAt.clientId.idempotencyKey.sha256(payload)`, 60-second TTL, verified with `crypto.timingSafeEqual`. New shared secret: `SERVICE_REQUEST_SIGNING_SECRET`, distinct from `AIKB_API_KEY`, `SLACK_SIGNING_SECRET`, and `INTEGRATION_CREDENTIAL_ENCRYPTION_KEY`.
 
-**Backlog H4 (2026-07-19) extended the same narrow envelope — not the full platform — to ten more clientId-scoped routes**: `POST /ingest`, `POST /reindex`, `DELETE /document/:id`, `DELETE /client/:clientId`, `GET /documents/:clientId`, `GET /collections/:clientId`, `POST /collections`, `PATCH /collections/:id`, `DELETE /collections/:id`, and `PATCH /document/:id/collection`. Two new things had no precedent before H4 and were built for it: (1) a GET-with-signed-JSON-body pattern for the two GET routes — `requireServiceRequest` itself needed no changes, since `express.json()` parses `req.body` on every verb; Relativity's caller sends the envelope via axios's `data` option on the GET request — and (2) a URL-param-vs-envelope `clientId` cross-check (400 on mismatch) on every route that also has `clientId` in its URL path, since trust now comes from the envelope, not the param.
+**Backlog H4 (2026-07-19, first pass) extended the same narrow envelope — not the full platform — to ten more clientId-scoped routes**: `POST /ingest`, `POST /reindex`, `DELETE /document/:id`, `DELETE /client/:clientId`, `GET /documents/:clientId`, `GET /collections/:clientId`, `POST /collections`, `PATCH /collections/:id`, `DELETE /collections/:id`, and `PATCH /document/:id/collection`. Two new things had no precedent before H4 and were built for it: (1) a GET-with-signed-JSON-body pattern for the two GET routes — `requireServiceRequest` itself needed no changes, since `express.json()` parses `req.body` on every verb; Relativity's caller sends the envelope via axios's `data` option on the GET request — and (2) a URL-param-vs-envelope `clientId` cross-check (400 on mismatch) on every route that also has `clientId` in its URL path, since trust now comes from the envelope, not the param.
 
-**Four routes remain shared-key-only, deliberately out of H4's scope**: `GET /jobs/:clientId`, `GET /summary/:clientId`, `GET /analytics/:clientId`, `GET /stats/:clientId` — read-only aggregate/reporting endpoints with the identical underlying trust gap (and `recentKnowledgeGaps`/`failedIngestionJobs` do return sensitive text, e.g. gap question content), tracked as a natural follow-up rather than folded silently into this change.
+**Backlog H4 (2026-07-19, second pass) closed the four remaining routes**: `GET /jobs/:clientId`, `GET /summary/:clientId`, `GET /analytics/:clientId`, `GET /stats/:clientId` — read-only aggregate/reporting endpoints that had the identical underlying trust gap (and `recentKnowledgeGaps`/`failedIngestionJobs` do return sensitive text, e.g. gap question content). These reuse the same GET-with-signed-JSON-body pattern and `clientId` cross-check established in the first pass; no new mechanism was needed. No AIKB clientId-scoped route now relies solely on the shared `x-api-key`.
 
 **The full future platform remains proposed, not built:** a unified signed envelope carrying a resolved principal, signed `entitledCollectionIds`, `origin`, and contract-versioning fields (`schemaVersion`, `issuer`, `audience`) — none of which exist in either repository as of this writing.
 
@@ -32,17 +32,17 @@ Envelope shape: `{ requestId, issuedAt, expiresAt, clientId, idempotencyKey, sig
 
 ## Consequences
 
-- `/jobs`, `/summary`, `/analytics`, and `/stats` now have a materially weaker authentication guarantee than every other clientId-scoped AIKB route — the inconsistency H4 didn't eliminate, only narrowed; it is explicitly tracked as a follow-up, not hidden.
-- This is a breaking wire-protocol change for the ten routes it touches: Relativity's callers now sign every request, and AIKB's handlers reject any of those ten without a valid envelope, with no shared-key-only fallback. Both repositories were updated together in the same work session specifically to avoid a window where one side expects the envelope and the other doesn't send it — but actual production deploy ordering (this repo has no visibility into either service's hosting/CI) is a real operational risk to plan for before pushing, not something this change can guarantee on its own.
+- `/jobs`, `/summary`, `/analytics`, and `/stats` no longer have a weaker authentication guarantee than the rest of AIKB's clientId-scoped routes — the inconsistency H4's first pass left open was closed in its second pass.
+- This is a breaking wire-protocol change for all 14 routes it touches: Relativity's callers now sign every request, and AIKB's handlers reject any of those 14 without a valid envelope, with no shared-key-only fallback. Both repositories were updated together in the same work session (for each pass) specifically to avoid a window where one side expects the envelope and the other doesn't send it — but actual production deploy ordering (this repo has no visibility into either service's hosting/CI) is a real operational risk to plan for before pushing, not something this change can guarantee on its own.
 - The envelope has no built-in rotation story (`SERVICE_REQUEST_SIGNING_SECRET` cannot be rotated without a coordinated deploy to both repositories) — accepted as a known gap for the MVP.
 - Any future connector needing a similar non-human, client-scoped call (Teams, Gmail push notifications) can reuse this same envelope shape rather than inventing a new one, but doing so for a *collection-scoped* call still requires building out the signed-`entitledCollectionIds` piece that was deliberately deferred here.
 
 ## Implementation Evidence
 
 - `services/serviceRequestAuth.js`, byte-for-byte identical in both repositories (signing-string format must match exactly).
-- AIKB: `middleware/serviceRequest.js` (`requireServiceRequest`), gating `POST /ask` and (backlog H4) ten more routes in `routes/knowledge.js`, all additive to the existing `requireApiKey`.
-- Relativity: `middleware/requireServiceRequest.js`, gating `POST /api/integrations/slack/deliver` (reversed direction — AIKB signs, Relativity verifies); `services/aikbService.js`'s `signedEnvelope()` helper (backlog H4) signs every call to the ten newly-gated routes.
-- H4's extension verified via a live smoke test against a running AIKB server with real (dev) data: confirmed a correctly signed envelope succeeds, a missing envelope 401s, a signature computed for the wrong secret 401s, a tampered payload 401s (proving the signature covers the payload, not just clientId), and a URL-param/envelope `clientId` mismatch 400s.
+- AIKB: `middleware/serviceRequest.js` (`requireServiceRequest`), gating `POST /ask` and (backlog H4, completed) 14 more routes in `routes/knowledge.js`, all additive to the existing `requireApiKey`.
+- Relativity: `middleware/requireServiceRequest.js`, gating `POST /api/integrations/slack/deliver` (reversed direction — AIKB signs, Relativity verifies); `services/aikbService.js`'s `signedEnvelope()` helper (backlog H4) signs every call to all 14 newly-gated routes.
+- Both passes of H4 verified via a live smoke test against a running AIKB server with real (dev) data: confirmed a correctly signed envelope succeeds, a missing envelope 401s, a signature computed for the wrong secret 401s, a tampered payload 401s (proving the signature covers the payload, not just clientId), and a URL-param/envelope `clientId` mismatch 400s.
 - No `entitledCollectionIds`, principal registry, or contract versioning exists anywhere in either repository as of this writing.
 
 ## Related Documents

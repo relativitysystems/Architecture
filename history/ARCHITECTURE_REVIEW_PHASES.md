@@ -41,7 +41,7 @@ The intended split — Relativity as surface/identity gateway, AIKB as knowledge
 
 ### Historical finding — status update (recorded after Phase 4 Milestones 1–3 shipped)
 
-The first and third Critical findings above were resolved — AIKB's Events handler was retired to a `410 Gone` stub (Milestone 1), and Relativity's bot token is now stored AES-256-GCM-encrypted, consumed for the first time by Milestone 4. `SLACK_SIGNING_SECRET` is no longer vestigial. The second Critical finding (shared-`x-api-key`-only routes on AIKB's non-Slack management routes) **remains open by deliberate scope decision** — see [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) item H4.
+The first and third Critical findings above were resolved — AIKB's Events handler was retired to a `410 Gone` stub (Milestone 1), and Relativity's bot token is now stored AES-256-GCM-encrypted, consumed for the first time by Milestone 4. `SLACK_SIGNING_SECRET` is no longer vestigial. The second Critical finding (shared-`x-api-key`-only routes on AIKB's non-Slack management routes) is now also **resolved** — see [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) item H4 (completed).
 
 ---
 
@@ -149,7 +149,7 @@ In scope: one Slack workspace per organization, `@RelativityBot` mentions answer
 | Relativity captures Slack tokens but never consumes them | **Resolved** | Consumed by the Slack delivery path (Milestone 4). |
 | `SLACK_SIGNING_SECRET` unused/vestigial | **Resolved** | Wired through and used by Milestone 4's signature verification. |
 | No collections/department access model exists | **Resolved, exceeding original scope** | `knowledge_collections` fully implemented in AIKB (beyond Milestone 5's originally-scoped hardcoded stand-in). See [ADR-005](../decisions/ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md). |
-| Shared `x-api-key`-only tenant authorization on AIKB's non-Slack routes | **Open — deliberate scope decision** | Unaffected by Milestones 1–4; tracked in [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) (H4). |
+| Shared `x-api-key`-only tenant authorization on AIKB's non-Slack routes | **Resolved** | Unaffected by Milestones 1–4; closed separately via backlog H4 (completed) — all 14 clientId-scoped routes now also require the signed HMAC envelope. See [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) (H4). |
 | No DB-level tenant isolation (RLS) | **Open** | Tracked in [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) (M11). |
 | No knowledge-gap idempotency | **Partially resolved** | Schema supports it (`idempotency_key` on `knowledge_gaps`); no write path uses it yet — gaps remain explicit-user-action-only. Tracked (M4). |
 | Full signed `ServiceRequest` platform (entitledCollectionIds, principal registry, contract versioning) | **Open — proposed, not built** | Only a narrow `/ask`/`/deliver` HMAC envelope exists. See [ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md). |

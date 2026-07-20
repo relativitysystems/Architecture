@@ -35,7 +35,7 @@ The platform boundary confirmed by this audit (schemas, functions, and code cros
 | API surface | Owner | Notes |
 |---|---|---|
 | `/auth/*`, `/api/*` (Relativity), `/admin/*`, `/api/integrations/slack/*` | Relativity | Customer-facing gateway |
-| `/api/knowledge/*` (AIKB) | AIKB | 4 read-only reporting routes (`x-api-key` only), member routes (JWT), 12 routes with `x-api-key` + signed HMAC envelope (`/ask`, `/chat/redact`, and 10 more per backlog H4) |
+| `/api/knowledge/*` (AIKB) | AIKB | Member routes (JWT), 16 routes with `x-api-key` + signed HMAC envelope (`/ask`, `/chat/redact`, and 14 more per backlog H4, completed — no route relies solely on `x-api-key` anymore) |
 | `/api/inngest` | AIKB | Inngest webhook callback |
 
 ## Integration ownership — Historical (per existing ADR-001), Structure Verified for file presence
