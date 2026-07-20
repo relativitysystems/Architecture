@@ -27,15 +27,9 @@ LANGUAGE sql STABLE
 ```
 Queries `knowledge_chunks` directly with **no collection filtering** and **no join** to `knowledge_documents`. **Migration source:** `001_knowledge_base_schema.sql` — the original implementation, predating collections entirely. Migration `006` added the 5-arg version via `CREATE OR REPLACE FUNCTION` with a different parameter list, which in Postgres creates a **second, independent overload** rather than replacing this one — it was never dropped. **No caller in either repo today.** **Classification: Safe removal candidate**, with a caveat: because it's in a tracked migration (`001`), removing it live requires a companion `DROP FUNCTION` migration to keep replay/rollback consistent with the live database — see [../../audits/SCHEMA_DRIFT.md](../../audits/SCHEMA_DRIFT.md) for the full ambiguity-risk analysis (PostgREST overload resolution).
 
-## `match_documents(query_embedding, match_count, filter)`
+## `match_documents(query_embedding, match_count, filter)` — dropped
 
-```sql
-match_documents(
-  query_embedding vector, match_count int DEFAULT NULL, filter jsonb DEFAULT '{}'
-) RETURNS TABLE(id bigint, content text, metadata jsonb, similarity float8)
-LANGUAGE plpgsql
-```
-Queries the legacy `documents` table (see [TABLES.md](TABLES.md)). Standard Supabase/pgvector-quickstart shape. **Zero references** in either repository's code or git history, on any branch. **EXECUTE granted to `anon` and `authenticated`, confirmed directly** — it is a live, callable-via-PostgREST public API surface today despite being dead code. **Classification: Safe removal candidate.**
+Queried the legacy `documents` table (see [TABLES.md](TABLES.md)). Had **zero references** in either repository's code or git history, on any branch, despite `EXECUTE` granted to `anon` and `authenticated` — a live, callable-via-PostgREST public API surface with no application caller. Dropped in production alongside `documents` via `007_drop_legacy_documents.sql` (backlog L6).
 
 ## Related documents
 

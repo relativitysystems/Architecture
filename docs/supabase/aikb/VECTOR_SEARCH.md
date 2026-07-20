@@ -15,7 +15,7 @@ CREATE INDEX knowledge_chunks_embedding_idx
 ```
 Cosine-distance approximate nearest-neighbor index on `knowledge_chunks.embedding`, created in `001_knowledge_base_schema.sql`. `lists = 100` is a fixed tuning parameter — appropriate for tens of thousands of rows; at 104 rows today the index provides negligible benefit over a sequential scan, but is correctly sized for expected future growth (Inference — not verified against a specific growth projection).
 
-The legacy `documents.embedding` column has **no vector index at all** — any query against it (via the dead `match_documents()` function) would be a full sequential scan. See [../../audits/SCHEMA_DRIFT.md](../../audits/SCHEMA_DRIFT.md).
+The legacy `documents` table and its `match_documents()` function (which had no vector index at all — any query would have been a full sequential scan) were dropped in production (backlog L6, `007_drop_legacy_documents.sql`). See [../../audits/SCHEMA_DRIFT.md](../../audits/SCHEMA_DRIFT.md).
 
 ## Retrieval function
 

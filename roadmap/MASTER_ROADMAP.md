@@ -62,7 +62,7 @@ In sequence:
    - Close the shared-`x-api-key`-only tenant-authorization gap on AIKB's non-Slack management routes (`/ingest`, `/reindex`, `/documents/:clientId`, etc.) — the longest-standing open Critical/High finding from the original review. See [../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
    - Migrate Google Drive and Dropbox onto the encrypted `oauth_connections`/`oauth_credentials` model, retiring the legacy plaintext `oauth_tokens` table entirely.
    - Decide and implement Milestone 6 (fuller knowledge-gap/conversation-metadata polish) — schema-ready, code not started.
-   - Housekeeping: delete AIKB's now-fully-inert legacy `routes/slack.js` file and its unused `SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET` config reads; address the Slack delivery-failure operational follow-ups tracked in [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
+   - ✅ Housekeeping (L7): the unused `SLACK_BOT_TOKEN` config read has been removed from `aikb/config/index.js` and `.env.example`. `routes/slack.js` itself was **not** deleted — it still performs live Slack signature verification and answers the `url_verification` handshake, and `SLACK_SIGNING_SECRET` remains required for that. Address the Slack delivery-failure operational follow-ups tracked in [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
 
 Full item-level detail, grouped by priority and area: [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
 

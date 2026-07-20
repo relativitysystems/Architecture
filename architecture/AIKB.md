@@ -175,7 +175,6 @@ When an answer is classified as a knowledge gap, any model-hallucinated `Source:
 - **No deduplication on `knowledge_gaps` inserts** — `createKnowledgeGap` is a plain `INSERT`; the `idempotency_key` column added for this purpose (migration 005) is not yet used by any write path.
 - **No OCR / scanned-PDF support.** PDF parsing extracts the embedded text layer only (`pdf-parse`); image-only or scanned documents produce no usable text.
 - **Single in-process Inngest instance** — background jobs run inside the same Express process as the REST API; there is no independently-scaled worker deployment.
-- **Dead code**: `middleware/resolveContext.js`'s permissive `resolveContext` function is exported but not wired to any route; `deleteLegacyDocumentsForClient` targets a `documents` table with no migration in this repository (best-effort cleanup for a pre-repo-history table).
 - **Two overlapping analytics endpoints** (`GET /summary/:clientId`, `GET /analytics/:clientId`) compute similar aggregates independently on every request, with no shared computation or caching layer — see [KNOWLEDGE_ANALYTICS.md](../product/KNOWLEDGE_ANALYTICS.md).
 
 ## Future Extension Points

@@ -28,7 +28,7 @@ The platform boundary confirmed by this audit (schemas, functions, and code cros
 | `set_updated_at()` | Global | Postgres trigger only (`clients`, `oauth_tokens`, `folder_states`) — no direct code caller |
 | `match_knowledge_chunks` (5-arg) | AIKB | AIKB (`supabaseService.js:searchChunks`, used by both portal and Slack query paths) |
 | `match_knowledge_chunks` (4-arg, legacy) | AIKB | No live caller in either repo |
-| `match_documents` | AIKB | No live caller in either repo |
+| `match_documents` | AIKB | Dropped (backlog L6, `007_drop_legacy_documents.sql`, applied and verified in production) |
 
 ## API ownership
 

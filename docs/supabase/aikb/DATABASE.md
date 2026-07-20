@@ -28,11 +28,11 @@ Only system views (`extensions.pg_stat_statements*`, `vault.decrypted_secrets`).
 
 ## Tables
 
-8 tables in `public`. Full reference: [TABLES.md](TABLES.md).
+7 tables in `public`. Full reference: [TABLES.md](TABLES.md).
 
 ## Functions / RPCs
 
-3 distinct functions (one has two overloads): `match_documents`, `match_knowledge_chunks` (×2 overloads). Full reference: [FUNCTIONS.md](FUNCTIONS.md), [VECTOR_SEARCH.md](VECTOR_SEARCH.md).
+2 distinct functions, one with two overloads: `match_knowledge_chunks` (×2 overloads). `match_documents` was dropped (backlog L6, `007_drop_legacy_documents.sql`). Full reference: [FUNCTIONS.md](FUNCTIONS.md), [VECTOR_SEARCH.md](VECTOR_SEARCH.md).
 
 ## Storage
 
@@ -40,12 +40,12 @@ One bucket: `aikb-documents` (private, created 2026-06-11, no explicit size/MIME
 
 ## Migration history
 
-Supabase's tracked-migrations table is empty despite 6 `.sql` files in `aikb/migrations/` (001–006). Same drift pattern as the Global project. One confirmed pre-migration artifact: the `documents` table and `match_documents()` function — see [../../audits/SCHEMA_DRIFT.md](../../audits/SCHEMA_DRIFT.md).
+Supabase's tracked-migrations table is empty despite 7 `.sql` files in `aikb/migrations/` (001–007). Same drift pattern as the Global project. The previously-confirmed pre-migration artifact — the `documents` table and `match_documents()` function — has been resolved: `007_drop_legacy_documents.sql` dropped both (backlog L6), applied to this live database and verified gone — see [../../audits/SCHEMA_DRIFT.md](../../audits/SCHEMA_DRIFT.md).
 
 ## Security & Performance advisors
 
-- 8 `rls_enabled_no_policy` findings — every public table
-- 3 `function_search_path_mutable` findings — `match_documents`, and **both** `match_knowledge_chunks` overloads separately
+- 7 `rls_enabled_no_policy` findings — every public table
+- 2 `function_search_path_mutable` findings — **both** `match_knowledge_chunks` overloads
 - 4 `unindexed_foreign_keys`, 2 `unused_index` findings
 
 Full detail: [SECURITY.md](SECURITY.md), [INDEXES.md](INDEXES.md).

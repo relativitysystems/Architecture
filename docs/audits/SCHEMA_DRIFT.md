@@ -50,8 +50,8 @@ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
 - **Rows:** 0 today. **Lifetime writes:** **954 inserts, 146 deletes recorded**, `last_autoanalyze` 2026-06-03 — concrete evidence of real historical production use, not a never-used stub.
 - **Migration provenance:** none — predates `001_knowledge_base_schema.sql`.
 - **Git history:** touched in application code exactly once, in `c4c6fe7` ("delete stuff", 2026-07-01), which added `deleteLegacyDocumentsForClient()` — its own comment: *"no migration in this repo defines a bare `documents` table... but a legacy table may still exist live in the DB."*
-- **Current code reference:** `deleteLegacyDocumentsForClient()` → `deleteAllClientData()`, a best-effort, error-swallowing cleanup step.
-- **Classification: Legacy but still required** (borderline safe-removal). Genuinely legacy and currently empty, but the one candidate with proven historical production data and a live (if defensive) code dependency. Recommend: confirm zero-row state holds through one more full client-offboarding cycle, then drop the table **and** the cleanup function together in the same change — leaving either without the other creates dead code.
+- **Former code reference:** `deleteLegacyDocumentsForClient()` → `deleteAllClientData()`, a best-effort, error-swallowing cleanup step. **Removed** (backlog L6) — confirmed via direct query that the table held 0 rows and no write activity since the prior audit snapshot (`last_autoanalyze` unchanged), so the one-more-offboarding-cycle wait this doc originally recommended was treated as satisfied by that live check rather than a further calendar wait.
+- **Classification: Resolved — dropped.** `services/supabaseService.js` no longer references `documents`; `migrations/007_drop_legacy_documents.sql` dropped the table and `match_documents()` together in one migration (per this doc's original recommendation — never one without the other), applied to production and verified gone (`information_schema.tables` returns 0 rows for `public.documents`).
 
 ## AIKB — `public.match_documents(query_embedding, match_count, filter)`
 
@@ -65,7 +65,7 @@ LANGUAGE plpgsql AS $$ ... select ... from documents where metadata @> filter ..
 - **Grants — verified directly via `has_function_privilege()`:** `anon = true`, `authenticated = true`, `service_role = true`.
 - **Repo references:** zero, in either repository, on any branch (`git log --all -S'match_documents'` empty everywhere).
 - **Live exposure:** callable via PostgREST (`/rest/v1/rpc/match_documents`) today regardless of code usage, since it's public-schema + EXECUTE-granted. Practical risk is low (its backing table is empty and RLS blocks anon/authenticated row access even if called), but it is a dead, exposed API surface.
-- **Classification: Safe removal candidate.** One caveat left genuinely **Unresolved**: whether any consumer external to these two repos calls it directly (e.g. a customer script holding an anon key) — cannot be ruled out from static repo analysis alone.
+- **Classification: Resolved — dropped (backlog L6).** `migrations/007_drop_legacy_documents.sql` dropped this function alongside `documents`, applied to production and verified gone (`pg_proc` returns 0 rows for `public.match_documents`). The one caveat this doc originally flagged — whether any consumer external to these two repos called it directly via PostgREST (e.g. a customer script holding an anon key) — was never confirmed or ruled out via static repo analysis, but is now moot: the function no longer exists, so any such caller would already be getting an error rather than silently continuing to work. If that caveat matters to anyone downstream, it surfaces now, not later.
 
 ## AIKB — `match_knowledge_chunks` — overload pair
 

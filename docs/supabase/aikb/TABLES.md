@@ -143,9 +143,9 @@ Indexes: PK; unique `(client_id, name)`; unique partial `(client_id) WHERE is_de
 
 ---
 
-### `documents` — legacy table
+### `documents` — legacy table, **dropped**
 
-Full audit: [../../audits/SCHEMA_DRIFT.md](../../audits/SCHEMA_DRIFT.md). Summary: `id bigint, content text, metadata jsonb, embedding vector` (standard pgvector-quickstart shape), pre-dates the `001` migration, 0 rows today but 954 historical inserts / 146 deletes recorded — genuinely used before this schema replaced it. Only surviving code reference is a defensive legacy-cleanup delete path. Classified **Legacy but still required** (borderline safe-removal, pending one more confirmed-empty offboarding cycle).
+Was `id bigint, content text, metadata jsonb, embedding vector` (standard pgvector-quickstart shape), pre-dating the `001` migration; held 954 historical inserts / 146 deletes before being superseded by this schema. Dropped in production via `007_drop_legacy_documents.sql` (backlog L6) alongside `match_documents()`, its only remaining caller. Full history: [../../audits/SCHEMA_DRIFT.md](../../audits/SCHEMA_DRIFT.md).
 
 ## Related documents
 
