@@ -1,10 +1,10 @@
 # Knowledge Gap Detection
 
-Source repository: `relativitysystems/AIKB` (`services/runKnowledgeQuery.js`, `services/supabaseService.js`, `routes/knowledge.js`, `migrations/003_chat_history.sql`, `migrations/005_slack_origin_tracking.sql`) and `relativitysystems/Relativity` (`public/portal/portal.js`, `routes/api.js`).
+Source repository: `relativitysystems/AIKB` (`services/runKnowledgeQuery.js`, `services/knowledgeGapKey.js`, `services/supabaseService.js`, `routes/knowledge.js`, `migrations/003_chat_history.sql`, `migrations/005_slack_origin_tracking.sql`, `migrations/008_gap_reported_by.sql`) and `relativitysystems/Relativity` (`public/portal/portal.js`, `public/admin/admin.js`, `public/admin/admin.html`, `routes/api.js`, `routes/admin.js`, `services/aikbService.js`).
 
 ## Overview
 
-Knowledge-gap **detection** exists and runs automatically on every query. Knowledge-gap **persistence** does not — it requires an explicit user action. There is no deduplication, and there is no admin-facing review workflow, despite the database schema already supporting one. This document separates what is real from what would be needed for a complete gap-detection-and-review system.
+Knowledge-gap **detection** exists and runs automatically on every query. As of Backlog M4/M5/M12, **persistence, deduplication, and admin review are also real and automatic** — this used to be a design recommendation in this document; it is now implemented and covered by tests. This document reflects the current implementation, not a proposal.
 
 ## Current State
 
@@ -19,63 +19,39 @@ The system prompt instructs the model to use one of these exact phrasings when i
 
 When a gap is detected, the response's `sources[]` is forced empty and any model-hallucinated `Source:` line is rewritten to `Source: N/A`, so a gap answer can never appear to cite a document.
 
-### Persistence (explicit, user-triggered — not automatic)
+### Persistence (automatic, server-side, deduplicated — Backlog M4)
 
-`runKnowledgeQuery()` only **returns** `isKnowledgeGap`/`gapReason` in its response object — it never writes to the `knowledge_gaps` table itself. The only write path is `POST /api/knowledge/gaps`, whose own code comment states: *"Explicit save of a knowledge gap — called by the portal when the user chooses to save. The query endpoint no longer writes gaps automatically."* This is corroborated by migration `005_slack_origin_tracking.sql`, which adds `origin`/`origin_metadata`/`idempotency_key` columns to `knowledge_gaps` while explicitly noting "nothing in this milestone writes to `knowledge_gaps` automatically."
+`runKnowledgeQuery()` now calls `createKnowledgeGap` itself on both gap-detection branches, for both `origin: 'portal'` and `origin: 'slack'` — a deliberate reversal of the prior "only an explicit portal click persists a gap" behavior. This is best-effort: a `createKnowledgeGap` failure is logged and swallowed, and never breaks the user-facing answer/Slack reply, since gap logging is review-workflow/analytics data, not core to answering the user.
 
-In the portal, a query response flagged as a gap surfaces a card with **"Save gap"** and **"Dismiss"** buttons; only clicking "Save gap" issues the `POST /api/knowledge/gaps` call that actually creates a row. A dismissed or ignored gap is never recorded.
+Deduplication uses a new shared helper, `services/knowledgeGapKey.js#buildGapIdempotencyKey`, which derives `gap:v1:<clientId>:<sha256(normalized question)>:<ISO week>` — the question is lower-cased, whitespace-collapsed, and trailing punctuation stripped before hashing, and the key is bucketed by ISO week (not day): a recurring unresolved question resurfaces as a fresh row roughly weekly rather than staying silently open forever, while repeats of the same question within the same week collapse onto a single row. `supabaseService.js#createKnowledgeGap` upserts on this key — insert-on-conflict-do-nothing, then (on conflict) an update of `reason`/`session_id`/`message_id`/`updated_at` only. `status` and `reported_by` are deliberately never touched by the conflict-path update, so a recurring question never resets an admin's review state or misattributes a system-detected gap to a manual save (or vice versa).
 
-### What does not exist
+The portal's explicit "Save gap" card (still present — `POST /api/knowledge/gaps`) now derives the *same* idempotency key from `(clientId, question)`, so in the common case a manual save converges onto an already-auto-detected row (refreshing `reason`) rather than duplicating it. It only performs a true first-insert (with `reported_by: 'user'`) when no matching auto-detected row exists yet.
 
-- **No deduplication.** `createKnowledgeGap` is a plain `INSERT`. The `idempotency_key` column added in migration 005 for exactly this purpose is not used by any current write path — repeated saves of the same question create duplicate rows.
-- **No admin-facing list or detail view of individual gaps.** The `knowledge_gaps` table has a `status` column (`open`/`reviewed`/`resolved`/`ignored`), and AIKB's analytics function does return the 10 most recent gap questions, but no function anywhere writes or reads that `status` field, and the admin console only displays a per-client **count** of gaps — never the underlying question text or reason. See [KNOWLEDGE_ANALYTICS.md](KNOWLEDGE_ANALYTICS.md).
-- **No Slack-originated gap capture.** The `origin`/`origin_metadata` columns exist on `knowledge_gaps` but are unused by any write path — a knowledge gap surfaced through a Slack question is never recorded as a gap today.
-- **No automatic/server-driven gap persistence of any kind** — every existing gap row in the database, if any, exists only because a portal user explicitly clicked "Save gap."
+### Origin attribution (Backlog M4/M12)
 
-**Summary**: gap *detection* is real, automatic, and reasonably precise (two independent, complementary heuristics). Gap *management* — persistence, deduplication, review, and cross-channel capture — is either partial (persistence, gated behind an explicit click) or **not currently implemented** (deduplication, admin review UI, Slack capture).
+Both the auto-persist path and the manual-save path now populate `origin`/`origin_metadata` (columns added in migration 005, previously unused by any write path) and a new `reported_by` column (migration 008): `'system'` for pipeline-auto-detected gaps, `'user'` for an explicit manual save, `NULL` for the ~280 gap rows that predate this distinction (never backfilled — guessing a value for those rows would misattribute origin this migration has no way to actually know). Concretely:
 
-## Recommended Architecture
+- Slack-originated gaps carry `origin_metadata: {teamId, channelId, threadTs, eventId}` (unchanged from what the Slack flow already attached to chat sessions).
+- Portal-originated gaps now carry `origin_metadata: {route: '/api/knowledge/query', memberRole}` — previously sent nothing.
 
-The following is a design recommendation, not a description of existing code. Every item below is explicitly **not currently implemented**.
+### Admin review workflow (Backlog M5)
 
-```mermaid
-flowchart TD
-    Q["Query (any channel)"] --> D["Detection\n(existing: no-chunks + phrase-match)"]
-    D -->|gap detected| P{"Persistence decision"}
-    P -->|"today: portal only,\nexplicit click"| Save["POST /api/knowledge/gaps"]
-    P -.->|"recommended: automatic,\nserver-side, all channels"| AutoSave["Server-side createKnowledgeGap\nkeyed by idempotency_key"]
-    AutoSave -.-> Dedup["Dedup via existing\nunique idempotency_key index\n(already schema-ready, migration 005)"]
-    Save --> Table[("knowledge_gaps")]
-    AutoSave -.-> Table
-    Table --> Review[["Admin review UI\n(status: open/reviewed/resolved/ignored\n— column exists, unused)"]]
-```
+`aikb/routes/knowledge.js` adds `GET /api/knowledge/gaps/:clientId` (status-filterable list, `requireServiceRequest`-signed) and `PATCH /api/knowledge/gaps/:id` (status transition among `open`/`reviewed`/`resolved`/`ignored`), backed by `supabaseService.js#listKnowledgeGapsByClient`/`getKnowledgeGapById`/`updateKnowledgeGapStatus`. Relativity's admin console has a "Knowledge Gaps" tab (`public/admin/admin.html`/`admin.js`) fanning these out across every client (mirroring the existing `/analytics`/aikb-health fan-out pattern), showing client, question, reason, origin, reported-by, date, and an inline status `<select>` per row.
 
-Recommended changes, in rough dependency order:
+### What still does not exist
 
-1. **Move gap persistence server-side and make it automatic**, using the `idempotency_key` column (already present) to dedupe: a `hash(clientId, sessionId, normalizedQuestion)` key would let repeated identical questions collapse into one row instead of requiring a user click and creating duplicates on retry.
-2. **Distinguish system-detected vs. user-flagged gaps** — the schema has room for this (`reason`/`origin` columns already exist); persisting both types into the same table with a `reportedBy: system | user` distinction would preserve today's explicit "Save gap" affordance as a complementary signal, not a replacement for automatic capture.
-3. **Build an admin review UI** using the already-defined `status` lifecycle (`open → reviewed → resolved → ignored`) — currently no code reads or writes this field, so this is close to pure UI/API work on top of an existing schema.
-4. **Wire Slack (and any future channel) into gap persistence** using the `origin`/`origin_metadata` columns already added in migration 005 for this exact purpose.
+- **Client-facing gap visibility** — a client/member has no way to see which of their own questions were flagged as gaps; this remains admin-only. Not designed.
+- **Richer conversation-level polish beyond the minimal M4/M12 slice** — e.g. surfacing gap counts/trends over time in the admin UI, or bulk status actions — was not part of M4/M5/M12's scope and is not built.
 
-## Future Implementation
-
-Not currently implemented. Prerequisite work, based on what already exists vs. what would need to be built:
-
-| Capability | Schema readiness | Code readiness |
-|---|---|---|
-| Automatic server-side persistence | Ready (`idempotency_key` column + unique index already exist) | Not started — `runKnowledgeQuery.js` would need to call `createKnowledgeGap` directly |
-| Deduplication | Ready (unique index on `idempotency_key`) | Not started |
-| Admin review workflow (status transitions) | Ready (`status` CHECK constraint already defined) | Not started — no `updateGapStatus`/`listKnowledgeGaps`-style function exists in `supabaseService.js` today |
-| Cross-channel (Slack) gap capture | Ready (`origin`/`origin_metadata` columns exist) | Not started — no code path currently sets these columns |
-| Client-facing gap visibility | Not designed | Not started |
+**Summary**: gap *detection*, *persistence*, *deduplication*, *origin attribution*, and *admin review* are all real, automatic (where "automatic" applies), and covered by tests (`aikb/test/runKnowledgeQuery.test.js`, `aikb/test/knowledgeGapKey.test.js`). Client-facing visibility is the one piece from the original recommendation that remains unbuilt.
 
 ## Current Limitations
 
 - Gap detection quality depends entirely on the LLM using one of the expected trigger phrases in its own output — a model response that fails to answer the question without using one of those phrases would not be flagged, even though it should be.
-- A user who ignores or navigates away from a "Save gap" prompt leaves no trace that a gap was ever detected — there is no fallback automatic capture.
-- Duplicate gap rows for the same recurring unanswerable question are expected under the current design, since no dedup exists.
+- Migration `008_gap_reported_by.sql` (the `reported_by` column) has not yet been applied to either Supabase project as of this writing — see [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md)'s M12 entry. The corresponding code must not be deployed ahead of that migration.
+- The ~280 gap rows created before this feature existed have `origin`/`origin_metadata`/`idempotency_key`/`reported_by` all `NULL` and are rendered as "legacy"/"—" in the admin UI, not retroactively attributed.
+- Week-bucketed dedup means the *same* unresolved question can still appear as a new row every week it recurs — this is intentional (so a genuinely still-open gap doesn't go stale forever), not a bug, but it does mean the review queue is not a strict one-row-per-distinct-question model over long time horizons.
 
 ## Future Extension Points
 
-- The `idempotency_key` and `origin`/`origin_metadata` columns on `knowledge_gaps` (migration 005) are already in place specifically to support the automatic, deduplicated, cross-channel persistence model described above, without requiring a further schema change.
-- The existing `status` enum on `knowledge_gaps` is ready for an admin review workflow with no schema change required — only new read/write functions and a UI.
+- Client-facing gap visibility (a member seeing their own flagged questions) would reuse `listKnowledgeGapsByClient` with a member-scoped filter — the schema and core list function already support this; only a new member-facing endpoint/route and portal UI would be needed.

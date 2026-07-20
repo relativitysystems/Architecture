@@ -47,13 +47,13 @@ The client portal is a server-rendered-static, vanilla-JavaScript single-page ap
 - A dedicated "Chat History" tab lists the current member's own past sessions (filtered by a local member-to-session mapping, since AIKB itself is session-content source of truth but has no concept of per-member visibility).
 - Selecting a session replays its messages, including previously-stored sources.
 - Per-session delete and "Clear All History" are both implemented.
-- A session-rename endpoint exists on the backend (`PATCH /api/knowledge/chat/sessions/:id/title`) but has **no corresponding UI control** — it is currently unreachable from the portal frontend.
+- ~~A session-rename endpoint exists on the backend... but has no corresponding UI control~~ **Resolved (backlog M9).** A rename button (✎) next to each session's delete button now calls this endpoint via a `prompt()`-based rename.
 
 ### Collections
 
 - A full CRUD UI exists on a dedicated tab, visible only to owner/admin roles: create, rename, delete (delete is disabled in the UI, and refused server-side, for the default collection or any non-empty collection).
 - A per-document dropdown on the Documents tab lets owner/admin move a document between collections.
-- **Collections' only currently-wired downstream effect is restricting what Slack is allowed to search** — the tab's own subheading states this explicitly. The portal's own chat query does not apply a collection filter, so collections do not currently scope in-portal chat retrieval, only the Slack channel.
+- ~~**Collections' only currently-wired downstream effect is restricting what Slack is allowed to search**~~ **Resolved (backlog M10).** The Knowledge Base tab now has its own "Search scope" collection filter (per-member, persisted in `localStorage`, hidden when a client has zero or only its single default collection), and `POST /knowledge/query` forwards the selection to AIKB as `allowedCollectionIds` — AIKB itself needed no changes, since it already supported this parameter.
 
 ### Team Management
 
@@ -65,8 +65,8 @@ The client portal is a server-rendered-static, vanilla-JavaScript single-page ap
 
 ### Integrations
 
-- **Only Slack has a portal UI entry point today.** A single integration card on the Overview tab shows Connect/Disconnect and status, and — once connected — the "Collections Slack can search" checklist described in [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md).
-- Google Drive and Dropbox both still have full working OAuth connect/callback routes on the backend, and `GET /auth/me` still returns `googleDriveConnected`/`dropboxConnected` booleans, but **neither is read or rendered anywhere in the portal frontend** — Google Drive is only accessible as a one-time Picker import on the Documents tab; Dropbox has no UI at all.
+- Slack's integration card on the Overview tab shows Connect/Disconnect and status, and — once connected — the "Collections Slack can search" checklist described in [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md).
+- ~~Google Drive and Dropbox... neither is read or rendered anywhere in the portal frontend~~ **Resolved (backlog M8).** Both now have their own integration card in the same Overview panel (status badge + an owner/admin-only Connect button wired to the existing `/auth/google/start`/`/auth/dropbox/start` routes). Neither has a Disconnect button — no disconnect endpoint exists for either provider, so none was implied. Google Drive's one-time Picker import on the Documents tab is unchanged and separate from this connection-status display.
 
 ### Admin Console (distinct from the client portal)
 
@@ -86,9 +86,6 @@ flowchart TD
 
 ## Current Limitations
 
-- Google Drive and Dropbox "connected" status is computed server-side but dead in the UI — no button or badge surfaces either, despite working backend OAuth flows.
-- Chat-session rename is backend-only; no UI control exists for it.
-- Collections do not yet restrict the portal's own chat retrieval — only Slack.
 - No drag-and-drop upload despite an otherwise modern-looking upload UI.
 - A "chat welcome chips" UI element (example-question shortcuts) is commented out in the HTML but its click handler is still wired in JavaScript — dead code referencing a non-rendered element.
 - Several "TEMP DEBUG" `console.log`/`console.error` statements remain in production code paths (voice transcription).
@@ -99,7 +96,7 @@ flowchart TD
 
 Not currently implemented — noted here only because the current architecture makes each a plausible next step, not because any of it exists today:
 
-- Surfacing Google Drive/Dropbox connection status in the UI (the backend data already exists via `GET /auth/me`).
-- Extending collection-based access control to the portal's own chat, not just Slack.
-- A UI control for the already-implemented chat-session rename endpoint.
+- ~~Surfacing Google Drive/Dropbox connection status in the UI~~ — done (backlog M8).
+- ~~Extending collection-based access control to the portal's own chat~~ — done (backlog M10).
+- ~~A UI control for the already-implemented chat-session rename endpoint~~ — done (backlog M9).
 - Additional integration cards on the Overview tab as new connectors are built, following the pattern in [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md).

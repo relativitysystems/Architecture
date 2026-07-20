@@ -112,9 +112,9 @@ No completion date is set here; none exists elsewhere in this roadmap to anchor 
 Not scheduled, but a plausible next step given the current architecture (see [CONNECTOR_ROADMAP.md](CONNECTOR_ROADMAP.md) for connector-specific sequencing and [../product/AI_AGENTS.md](../product/AI_AGENTS.md) for the RAG-to-agentic roadmap):
 
 - Additional connectors: Microsoft Teams, Gmail, Outlook, meeting-transcript sources, CRM systems — all following the pattern Slack established ([../architecture/CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md)).
-- Extending collection-based retrieval filtering to the portal's own chat (currently Slack-only).
+- ~~Extending collection-based retrieval filtering to the portal's own chat (currently Slack-only)~~ — done (backlog M10).
 - Client-facing analytics (question volume, document counts, gap trends) — the backend already computes most of the needed data; only rendering is missing. See [../product/KNOWLEDGE_ANALYTICS.md](../product/KNOWLEDGE_ANALYTICS.md).
-- An admin review workflow for knowledge gaps, using the already-defined `status` lifecycle. See [../product/KNOWLEDGE_GAP_DETECTION.md](../product/KNOWLEDGE_GAP_DETECTION.md).
+- ~~An admin review workflow for knowledge gaps, using the already-defined `status` lifecycle~~ — done (backlog M5). See [../product/KNOWLEDGE_GAP_DETECTION.md](../product/KNOWLEDGE_GAP_DETECTION.md).
 - Tool/function calling and multi-step retrieval loops, moving from single-shot RAG toward more agentic behavior — no work started, no schema exists. See [../product/AI_AGENTS.md](../product/AI_AGENTS.md).
 
 ## Related Documents
