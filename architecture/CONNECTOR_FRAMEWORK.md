@@ -9,8 +9,8 @@ Three external connectors exist today, at three different levels of maturity:
 | Connector | Auth model | Maturity |
 |---|---|---|
 | **Slack** | Encrypted OAuth (`oauth_connections`/`oauth_credentials`), hashed server-side state, HMAC-verified events, idempotent event log | Fully modernized reference implementation |
-| **Google Drive** | Legacy plaintext OAuth (`oauth_tokens`) for a persistent-connection flow that is no longer exposed in the portal UI, plus a separate browser-obtained-token Picker import flow | Working, but split across two inconsistent auth paths |
-| **Dropbox** | Legacy plaintext OAuth (`oauth_tokens`) | Connect/status only — no working import path exists in this repository today |
+| **Google Drive** | Encrypted OAuth (`oauth_connections`/`oauth_credentials`, backlog H2) for a persistent-connection flow that is no longer exposed in the portal UI, plus a separate browser-obtained-token Picker import flow; unsigned base64 state (unlike Slack) | Working, but split across two inconsistent auth paths; token storage now matches Slack, state signing (M1) does not |
+| **Dropbox** | Encrypted OAuth (`oauth_connections`/`oauth_credentials`, backlog H2); unsigned base64 state (unlike Slack) | Connect/status only — no working import path exists in this repository today |
 
 Slack is the connector to model any future integration (Gmail, Outlook, Teams, CRM) on. This document describes what actually exists for each connector, then extracts the pattern Slack established so a future connector can reuse it.
 
@@ -18,7 +18,7 @@ Slack is the connector to model any future integration (Gmail, Outlook, Teams, C
 
 ### Google Drive
 
-- **Auth**: `GET /auth/google/start` (behind `clientAuth`) requests `drive.readonly` scope with `access_type=offline`/`prompt=consent`; state is an **unsigned** base64-encoded `{clientId}` (not hashed or server-stored, unlike Slack's later flow). `GET /auth/google/callback` exchanges the code and stores tokens **in plaintext** via `supabaseService.upsertToken(clientId, 'google_drive', ...)` in the legacy `oauth_tokens` table.
+- **Auth**: `GET /auth/google/start` (behind `clientAuth`) requests `drive.readonly` scope with `access_type=offline`/`prompt=consent`; state is an **unsigned** base64-encoded `{clientId}` (not hashed or server-stored, unlike Slack's later flow — tracked separately as backlog M1). `GET /auth/google/callback` exchanges the code and stores tokens via `oauthConnectionsService.createOrReplaceConnection(...)` (backlog H2) — encrypted in `oauth_connections`/`oauth_credentials`, the same model Slack uses, no longer the legacy plaintext `oauth_tokens` table. Silent token refresh (`googleDriveService.js#getValidAccessToken`, not currently called by any live route — see Current Limitations) uses `updateCredentialForConnection`, an in-place credential update added specifically because Google's token expires and needs refreshing while Slack's never did.
 - **A second, separate token path exists for the current UI flow**: the Google Picker. `GET /api/google-drive/picker-config` hands the browser a client ID/API key so the frontend runs Google's own JS picker and obtains its own short-lived access token client-side, sent as an `x-google-access-token` header to `POST /api/google-drive/import`. This route never touches the server-stored refresh token from the OAuth flow above.
 - **Normalization**: MIME allow-list (PDF, DOCX, `text/plain`, `text/markdown`) enforced before download; no content transformation happens in Relativity — raw bytes are handed to AIKB unchanged.
 - **Trigger**: one-shot, user-initiated only (Picker selection). No polling, webhook, or ongoing sync exists. (The apiKey-protected `GET /api/google-drive/files/:clientId`/`file/:clientId/:fileId` routes once documented here as a theoretical external-automation entry point were confirmed to have zero live callers and an unconfigured `API_KEY` — dead code, removed per backlog L9.)
@@ -27,7 +27,7 @@ Slack is the connector to model any future integration (Gmail, Outlook, Teams, C
 
 ### Dropbox
 
-- **Auth**: `GET /auth/dropbox/start`/`callback` (`token_access_type=offline`) exchange and store a token via the same legacy plaintext `oauth_tokens` path as Google Drive.
+- **Auth**: `GET /auth/dropbox/start`/`callback` (`token_access_type=offline`) exchange and store a token via `oauthConnectionsService.createOrReplaceConnection(...)` (backlog H2) — the same encrypted model as Google Drive and Slack, no longer the legacy plaintext `oauth_tokens` path. The stored token is write-only in this codebase — nothing reads it back (consistent with `listFiles()` being orphaned, see Import below), so only the write path needed migrating.
 - **Import**: `services/dropboxService.js#listFiles()` is explicitly commented as legacy, intended for a `/api/dropbox/files/:clientId` route used by an external n8n workflow — no such route exists in `routes/api.js` today. **Dropbox therefore has working OAuth connect/disconnect and status only; there is no in-repo document import path.**
 - **UI status**: `dropboxConnected` is computed by `GET /auth/me` but, like Google Drive's persistent connection, has no corresponding UI in the portal.
 
@@ -139,8 +139,8 @@ Concretely, a future connector should:
 
 ## Current Limitations
 
-- **Google Drive and Dropbox are not on the encrypted `oauth_connections` model.** Both still use the legacy plaintext `oauth_tokens` table via `supabaseService.upsertToken`/`getToken`, explicitly marked `@deprecated for new providers` in code — but not yet migrated for these two existing providers.
-- **Google Drive has two inconsistent auth paths** — a persistent OAuth connection (plaintext token, no UI entry point) and a one-shot Picker-obtained browser token (no server-side refresh token at all) — with no single source of truth for "is Drive connected."
+- ~~Google Drive and Dropbox are not on the encrypted `oauth_connections` model.~~ **Resolved (backlog H2).** Both now write through `oauth_connections`/`oauth_credentials`, the same model Slack uses. `upsertToken`/`getToken` in `supabaseService.js` are unchanged and still exist, but nothing calls them for any of the three providers this repo writes anymore.
+- **Google Drive has two inconsistent auth paths** — a persistent OAuth connection (now encrypted, still no UI entry point) and a one-shot Picker-obtained browser token (no server-side refresh token at all) — with no single source of truth for "is Drive connected."
 - **Dropbox has no working import path** in this repository; `listFiles()` is orphaned code with no calling route.
 - **Slack delivery does not guarantee eventual delivery, by design.** Bounded, immediate delivery retries followed by a terminal `delivery_failed` status (implemented, see above) replace the sweep entirely — there is no scheduled recovery of any kind. A sustained Slack outage longer than the retry window can still lose an answer; the user must ask again. See [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md).
 - **AIKB-side redaction on `delivery_failed` is best-effort, not guaranteed.** If the redaction callback to AIKB fails, Relativity's own `slack_event_log.question` is still correctly redacted, but the corresponding AIKB chat session/message content can remain un-redacted with no automatic retry. See [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)'s Implementation Status section.
@@ -152,4 +152,4 @@ Concretely, a future connector should:
 
 - The `oauth_connections`/`oauth_credentials` schema already anticipates `microsoft`, `gmail`, `google_drive`, `dropbox` as provider values — a Gmail or Outlook/Teams connector's credential storage requires no new table, only a new adapter following the pattern above.
 - `slack_collection_access`'s join-table shape (rather than an array column) is explicitly designed, per its own migration comment, "as the natural extension point for a future `principal_type`/`principal_id` pair (per-group or per-user scoping)" — i.e., moving from organization-wide allow-lists to finer-grained entitlement would not require a schema migration off the current table shape.
-- Migrating Google Drive and Dropbox onto the encrypted `oauth_connections` model (rather than adding a fourth ad hoc credential store) is the straightforward next step suggested directly by the schema's existing provider list.
+- ~~Migrating Google Drive and Dropbox onto the encrypted `oauth_connections` model~~ — done, backlog H2. `microsoft` and `gmail` remain in the provider list with no adapter built yet; their credential storage requires no new migration, only a new OAuth adapter following this same pattern.

@@ -10,7 +10,7 @@ The platform boundary confirmed by this audit (schemas, functions, and code cros
 |---|---|---|---|
 | `clients`, `client_members`, `client_users`, `team_invites`, `client_member_sessions` | Global | Relativity | AIKB: read-only (`globalSupabase` client in `supabaseService.js`, entitlement checks only) |
 | `client_portal_issues`, `document_import_log`, `leads` | Global | Relativity | None |
-| `oauth_tokens` (legacy), `oauth_connections`, `oauth_credentials`, `oauth_states` | Global | Relativity | None |
+| `oauth_tokens` (legacy, confirmed empty for every provider as of backlog H2), `oauth_connections`, `oauth_credentials`, `oauth_states` | Global | Relativity | None |
 | `slack_event_log` | Global | Relativity | None |
 | `slack_collection_access` | Global | Relativity | None — but referenced conceptually by AIKB's collection model via the client's Slack allow-list, enforced entirely in Relativity |
 | `folder_states`, `automation_logs` | Global | Relativity (dead feature) | None — see [../audits/SCHEMA_DRIFT.md](../audits/SCHEMA_DRIFT.md) |
@@ -35,7 +35,7 @@ The platform boundary confirmed by this audit (schemas, functions, and code cros
 | API surface | Owner | Notes |
 |---|---|---|
 | `/auth/*`, `/api/*` (Relativity), `/admin/*`, `/api/integrations/slack/*` | Relativity | Customer-facing gateway |
-| `/api/knowledge/*` (AIKB) | AIKB | Management routes (`x-api-key`), member routes (JWT), `/ask` (signed envelope, Slack only) |
+| `/api/knowledge/*` (AIKB) | AIKB | 4 read-only reporting routes (`x-api-key` only), member routes (JWT), 12 routes with `x-api-key` + signed HMAC envelope (`/ask`, `/chat/redact`, and 10 more per backlog H4) |
 | `/api/inngest` | AIKB | Inngest webhook callback |
 
 ## Integration ownership — Historical (per existing ADR-001), Structure Verified for file presence
@@ -43,8 +43,8 @@ The platform boundary confirmed by this audit (schemas, functions, and code cros
 | Integration | Owner | Provider auth model |
 |---|---|---|
 | Slack | Relativity | OAuth v2 + Events signature + encrypted `oauth_connections`/`oauth_credentials` |
-| Google Drive | Relativity | OAuth, legacy plaintext `oauth_tokens` |
-| Dropbox | Relativity | OAuth, legacy plaintext `oauth_tokens` |
+| Google Drive | Relativity | OAuth, encrypted `oauth_connections`/`oauth_credentials` (backlog H2); unsigned state (unlike Slack) |
+| Dropbox | Relativity | OAuth, encrypted `oauth_connections`/`oauth_credentials` (backlog H2); unsigned state (unlike Slack) |
 
 ## Open questions — Unknown
 

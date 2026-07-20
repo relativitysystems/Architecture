@@ -47,7 +47,7 @@ Relativity/
 
 | Service | Purpose | Status |
 |---|---|---|
-| `supabaseService.js` | Primary Global-DB data-access layer: `clients`, `client_members`, `team_invites`, `client_member_sessions`, `client_portal_issues`, `client_users`, `oauth_tokens` (legacy), plus `deleteClientFull()` client-offboarding cascade | **Code Verified** (read extensively — see audit history in this conversation) |
+| `supabaseService.js` | Primary Global-DB data-access layer: `clients`, `client_members`, `team_invites`, `client_member_sessions`, `client_portal_issues`, `client_users`, `oauth_tokens` (legacy — `upsertToken`/`getToken` unused by any provider as of backlog H2), plus `deleteClientFull()` client-offboarding cascade | **Code Verified** (read extensively — see audit history in this conversation) |
 | `oauthConnectionsService.js` | Encrypted OAuth connection/credential CRUD (`oauth_connections`/`oauth_credentials`), calls `replace_active_oauth_connection` RPC | **Code Verified** (partial) |
 | `integrationCredentialEncryption.js` | AES-256-GCM envelope encryption for OAuth secrets | **Historical** (per existing `SECURITY.md`, not re-read this pass) |
 | `oauthStateService.js` | CSRF state for Slack OAuth (`oauth_states`, hash-only) | **Structure Verified** |
@@ -61,7 +61,7 @@ Relativity/
 | `aikbService.js` | HTTP client for AIKB's management API (documents, jobs, analytics) | **Code Verified** (partial — confirms Relativity never queries AIKB tables directly except via `slackCollectionAccessService`) |
 | `aikbAskClient.js` | Signed HMAC envelope client for AIKB `/api/knowledge/ask` (Slack path) | **Structure Verified** |
 | `serviceRequestAuth.js` | HMAC-signed service-request envelope (shared design with AIKB's copy) | **Historical** |
-| `dropboxService.js`, `googleDriveService.js`, `googleDriveImportService.js` | Legacy provider integrations (plaintext `oauth_tokens`) | **Structure Verified** |
+| `dropboxService.js`, `googleDriveService.js`, `googleDriveImportService.js` | Provider integrations — token storage now encrypted `oauth_connections`/`oauth_credentials` (backlog H2), no longer plaintext `oauth_tokens` | **Structure Verified** |
 | `emailService.js` | Transactional email (Resend/SMTP) | **Structure Verified** |
 | `importMetadata.js` | Source-label formatting for `document_import_log` | **Structure Verified** |
 | `openaiService.js` | Used for audio transcription only (Relativity performs no embedding/chat) | **Historical** |

@@ -12,11 +12,11 @@ There is no single unified service-to-service authentication mechanism. Three di
 
 | Model | Applies to | Mechanism |
 |---|---|---|
-| Shared static API key | Every route under `/api/knowledge` (router-level) | `x-api-key` header, compared with `!==` (not constant-time) |
+| Shared static API key only | 4 routes: `/jobs/:clientId`, `/summary/:clientId`, `/analytics/:clientId`, `/stats/:clientId` | `x-api-key` header, compared with `crypto.timingSafeEqual` |
 | Shared key + member JWT | `/query`, `/chat/*`, `/gaps` | `x-api-key` **plus** `requireMemberContext` — Supabase JWT re-validated against Global DB `client_members` |
-| Shared key + signed HMAC envelope | `/ask` (Slack path), and in reverse, Relativity's `/deliver` | `x-api-key` **plus** `requireServiceRequest` — an additive, narrowly-scoped HMAC envelope (`services/serviceRequestAuth.js`, identical in both repos), 60-second TTL, `crypto.timingSafeEqual` |
+| Shared key + signed HMAC envelope | `/ask`, `/chat/redact`, and (backlog H4) 10 more routes: `/ingest`, `/reindex`, `DELETE /document/:id`, `DELETE /client/:clientId`, `/documents/:clientId`, `/collections/:clientId`, `POST/PATCH/DELETE /collections[/:id]`, `PATCH /document/:id/collection` — plus, in reverse, Relativity's `/deliver` | `x-api-key` **plus** `requireServiceRequest` — an additive, narrowly-scoped HMAC envelope (`services/serviceRequestAuth.js`, identical in both repos), 60-second TTL, `crypto.timingSafeEqual`. On the 2 GET routes above, the envelope travels as a JSON body on the GET request (via axios's `data` option) rather than a query string — `express.json()` parses `req.body` regardless of HTTP verb, so `requireServiceRequest` itself needed no changes. Every route with `clientId` in its URL path also cross-checks the param against the envelope's `clientId` (400 on mismatch). |
 
-**Important distinction:** Phase 2 of the original architecture review proposed a full signed `ServiceRequest` envelope carrying `organizationId`, a resolved principal, signed `entitledCollectionIds`, `origin`, and an idempotency key — replacing the shared API key everywhere. **That full platform was never built.** What exists is a much smaller, additive HMAC envelope built specifically for Slack's `/ask`/`/deliver` pair (Milestone 4). Every other AIKB management route (`/ingest`, `/reindex`, `/documents/:clientId`, `/jobs/:clientId`, `/summary/:clientId`, `/analytics/:clientId`, `DELETE /client/:clientId`) still relies solely on the shared `x-api-key` plus Relativity's own upstream entitlement check — this is a known, tracked gap, not a silent oversight. See [SECURITY.md](SECURITY.md) and [ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
+**Important distinction:** Phase 2 of the original architecture review proposed a full signed `ServiceRequest` envelope carrying `organizationId`, a resolved principal, signed `entitledCollectionIds`, `origin`, and an idempotency key — replacing the shared API key everywhere. **That full platform was never built.** What exists is a much smaller, additive HMAC envelope built for Slack's `/ask`/`/deliver` pair (Milestone 4) and extended (backlog H4) to 10 more clientId-scoped management routes. 4 read-only reporting routes (`/jobs/:clientId`, `/summary/:clientId`, `/analytics/:clientId`, `/stats/:clientId`) still rely solely on the shared `x-api-key` plus Relativity's own upstream entitlement check — a known, tracked residual gap, not a silent oversight; some of these return sensitive text (`recentKnowledgeGaps`, `failedIngestionJobs`). See [SECURITY.md](SECURITY.md) and [ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
 
 ## Idempotency
 
@@ -125,15 +125,15 @@ Every other route (`/query`, `/gaps`, `/reindex`, `DELETE /document/:id`) has no
 **Owner:** AIKB
 **Caller:** Relativity
 
-**Authentication:** `x-api-key` only (`requireApiKey`, router-level).
+**Authentication:** `x-api-key` + `requireServiceRequest` (backlog H4, additive HMAC envelope — same mechanism as `/ask`).
 
-**Request:** `{ clientId, sourceProvider: 'portal_upload', sourceFileId, storagePath }`.
+**Request:** signed envelope wrapping `{ sourceProvider: 'portal_upload', sourceFileId, fileName, mimeType, storagePath }`. `clientId` comes only from the verified envelope, never the payload.
 
 **Response:** `202 { queued: true, eventId }`.
 
-**Authorization rules:** `requireActiveClient` confirms `clientId` is active in the Global DB — does **not** independently verify the caller is entitled to that specific client (relies on Relativity having already checked upstream). See [SECURITY.md](SECURITY.md).
+**Authorization rules:** `requireActiveClient` confirms `clientId` (from the envelope) is active in the Global DB. The envelope's HMAC signature cryptographically binds `clientId` to the request — a leaked shared `x-api-key` alone is no longer sufficient to ingest on behalf of an arbitrary client. See [SECURITY.md](SECURITY.md), [ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
 
-**Idempotency:** content-hash dedup — re-ingesting identical content for the same `(clientId, sourceProvider, sourceFileId)` is a no-op unless `forceReindex` is set.
+**Idempotency:** content-hash dedup — re-ingesting identical content for the same `(clientId, sourceProvider, sourceFileId)` is a no-op unless `forceReindex` is set. The envelope's own `idempotencyKey` has no dedup meaning here (unlike `/ask`) — it's generated fresh per call purely to satisfy the envelope schema.
 
 **Failure behavior:** enqueues `knowledge/document.ingest`; failures surface via `knowledge_ingestion_jobs.status = 'failed'`, polled by the portal.
 
@@ -143,40 +143,61 @@ Every other route (`/query`, `/gaps`, `/reindex`, `DELETE /document/:id`) has no
 
 ### POST `/api/knowledge/reindex`
 
-**Owner:** AIKB · **Caller:** Relativity
-**Authentication:** `x-api-key` only.
+**Owner:** AIKB · **Caller:** none currently (see Notes)
+**Authentication:** `x-api-key` + `requireServiceRequest` (backlog H4).
 **Request/Response:** thin wrapper — validates metadata, re-sends `knowledge/document.ingest` with `forceReindex: true`.
 **Authorization rules / Idempotency:** same as `/ingest`, with dedup bypassed by design (`forceReindex`).
 **Failure behavior:** same as `/ingest`.
+**Notes:** confirmed zero callers anywhere in the Relativity repo (no `aikbService.js` function calls it) — gated the same as `/ingest` for consistency, but there is no live wiring on the Relativity side to update.
 
 ---
 
 ### DELETE `/api/knowledge/document/:id`
 
 **Owner:** AIKB · **Caller:** Relativity
-**Authentication:** `x-api-key` only.
-**Request:** `{ clientId }` (body or query).
-**Authorization rules:** AIKB performs its own defense-in-depth ownership check (`doc.client_id !== clientId → 403`) before acting, in addition to the shared-key gate.
+**Authentication:** `x-api-key` + `requireServiceRequest` (backlog H4).
+**Request:** signed envelope wrapping `{ sourceFileId?, sourceProvider? }`. `clientId` comes only from the verified envelope.
+**Authorization rules:** AIKB performs its own defense-in-depth ownership check (`doc.client_id !== clientId → 403`) before acting, in addition to the envelope's binding.
 **Idempotency:** none beyond the ownership check.
 **Failure behavior:** enqueues `knowledge/document.delete` (find-document → delete-chunks → mark-deleted → delete-storage-file).
 
 ---
 
-### GET `/api/knowledge/documents/:clientId`, `/jobs/:clientId`, `/summary/:clientId`, `/analytics/:clientId`, `/stats/:clientId`
+### DELETE `/api/knowledge/client/:clientId`
+
+**Owner:** AIKB · **Caller:** Relativity (client-deletion flow)
+**Authentication:** `x-api-key` + `requireServiceRequest` (backlog H4).
+**Request:** signed envelope, empty payload. `clientId` comes only from the verified envelope; the URL param is kept for REST addressability/logging and cross-checked against the envelope (400 on mismatch).
+**Authorization rules:** deliberately does **not** call `requireActiveClient` — this route must keep working even after the Global `clients` row is already gone (it runs before that row is removed). `requireServiceRequest` is compatible with that constraint because it's a pure HMAC check with no database dependency, unlike `requireActiveClient`.
+**Notes:** hard-deletes all AIKB data for a client (storage, documents, chunks, chat history, gaps, ingestion jobs).
+
+---
+
+### GET `/api/knowledge/documents/:clientId`, `/collections/:clientId`
 
 **Owner:** AIKB · **Caller:** Relativity
-**Authentication:** `x-api-key` only.
-**Authorization rules:** same trust-Relativity-upstream model as `/ingest` — no independent per-caller entitlement check. See [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) item H4.
+**Authentication:** `x-api-key` + `requireServiceRequest` (backlog H4). The signed envelope is sent as a JSON body on these GET requests (unusual but valid — `express.json()` parses `req.body` on every verb; this is a direct server-to-server axios call, not routed through a cache/proxy that would strip a GET body).
+**Authorization rules:** `clientId` comes only from the verified envelope; the URL param is cross-checked against it (400 on mismatch).
+**Notes:** `/documents/:clientId` is also called internally by `getIngestionJobsByClient`'s Relativity-side enrichment (`aikbService.js#listIngestionJobs`, joining job records to file names) — that call is unaffected since it goes through the now-signed `listDocuments`.
+
+---
+
+### GET `/api/knowledge/jobs/:clientId`, `/summary/:clientId`, `/analytics/:clientId`, `/stats/:clientId`
+
+**Owner:** AIKB · **Caller:** Relativity
+**Authentication:** `x-api-key` only — **not yet covered by backlog H4** (deliberately left out of that change's scope; tracked as its remaining work).
+**Authorization rules:** same trust-Relativity-upstream model as `/ingest` used to have — no independent per-caller entitlement check. `recentKnowledgeGaps` (via `/analytics`/`/stats`) and `failedIngestionJobs` return sensitive text (actual user question content, job error messages), making this a real residual gap, not just a theoretical one. See [../roadmap/FEATURE_BACKLOG.md](../roadmap/FEATURE_BACKLOG.md) item H4.
 **Notes:** `/stats` (backlog L5) is a superset of `/summary` + `/analytics` + `/jobs`, added so a caller needing more than one of them for the same client (Relativity's admin routes) can get all of it in one round trip instead of independently re-querying the same tables — `getClientKnowledgeStats` computes each underlying table exactly once. `/summary`, `/analytics`, and `/jobs` are unchanged and still used standalone elsewhere (the client portal calls `/analytics` alone). See [../product/KNOWLEDGE_ANALYTICS.md](../product/KNOWLEDGE_ANALYTICS.md).
 
 ---
 
-### GET/POST/PATCH/DELETE `/api/knowledge/collections[...]`
+### POST/PATCH/DELETE `/api/knowledge/collections[...]`, PATCH `/api/knowledge/document/:id/collection`
 
 **Owner:** AIKB · **Caller:** Relativity (portal, owner/admin only for mutations)
-**Authentication:** `x-api-key` only (mutation authorization — owner/admin role — is enforced by Relativity before forwarding).
-**Authorization rules:** server-side and DB-level (`ON DELETE RESTRICT`) protection against deleting the default collection or a non-empty collection.
-**Notes:** see [AIKB.md](AIKB.md) — Knowledge Collections.
+**Authentication:** `x-api-key` + `requireServiceRequest` (backlog H4; mutation authorization — owner/admin role — is enforced by Relativity before forwarding, unchanged).
+**Request:** signed envelope wrapping the route-specific fields (`{ name }` for create/rename; `{ collectionId, sourceFileId?, sourceProvider? }` for the document-move route). `clientId` comes only from the verified envelope.
+**Authorization rules:** server-side and DB-level (`ON DELETE RESTRICT`) protection against deleting the default collection or a non-empty collection, plus the envelope's `clientId` binding (backlog H4).
+**Notes:** see [AIKB.md](AIKB.md) — Knowledge Collections. `GET /collections/:clientId` is covered above with `/documents/:clientId` (the GET-with-signed-body pattern).
 
 ---
 
@@ -201,7 +222,7 @@ Every other route (`/query`, `/gaps`, `/reindex`, `DELETE /document/:id`) has no
 
 The following were proposed during the original architecture review and are **not implemented**. They are preserved here only to make clear they are not current behavior; see [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md) for the full original proposal.
 
-- A unified, signed `ServiceRequest` envelope (`organizationId`, resolved principal, signed `entitledCollectionIds`, `origin`, idempotency key) replacing the shared `x-api-key` on **every** route. Only a narrow subset (the `/ask`/`/deliver` pair) was built. See [ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
+- A unified, signed `ServiceRequest` envelope (`organizationId`, resolved principal, signed `entitledCollectionIds`, `origin`, idempotency key) replacing the shared `x-api-key` on **every** route. Only a narrow subset — `/ask`, `/deliver`, `/chat/redact`, and (backlog H4) 10 more clientId-scoped routes — was built; 4 read-only reporting routes remain shared-key-only. See [ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
 - `POST /resolve-collections` (Relativity asks AIKB to validate a collection-id list before signing it) — not built; there is no signed collection list to validate yet.
 - `GET /sources/{answerId}` (re-fetch citation detail after the fact) — not built; citations are only ever returned inline on `/query`/`/ask`.
 - Contract-versioning fields (`schemaVersion`, `issuer`, `audience`) on the service-request envelope — not built.

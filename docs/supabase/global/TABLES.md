@@ -119,7 +119,7 @@ Indexes: PK only. FK: `client_id → clients` (CASCADE, **unindexed** — perfor
 ---
 
 ### `oauth_tokens` (legacy)
-**Purpose (Historical):** plaintext OAuth token storage for Google Drive and Dropbox, `@deprecated for new providers`. **Rows:** 0. **Migration source:** pre-dates tracked migrations.
+**Purpose (Historical):** plaintext OAuth token storage for Google Drive and Dropbox. As of backlog H2, both providers write through `oauth_connections`/`oauth_credentials` instead (the same model Slack already used) — `upsertToken`/`getToken` in `supabaseService.js` still exist but nothing calls them for any provider anymore. **Rows:** 0 (confirmed empty for every provider both before and after H2 — this was not a live-data migration). **Migration source:** pre-dates tracked migrations.
 
 | Column | Type | Nullable | Default |
 |---|---|---|---|
