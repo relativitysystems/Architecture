@@ -1,12 +1,12 @@
 # AIKB Supabase — Row Level Security
 
-**Database Verified.** Identical pattern to the Global project (see [../global/RLS.md](../global/RLS.md)): **RLS is enabled on all 8 `public` tables, with zero policies on any of them.**
+**Database Verified (re-checked 2026-07-19, backlog M11).** Identical pattern to the Global project (see [../global/RLS.md](../global/RLS.md)): **RLS is enabled on all 7 `public` tables, with zero policies on any of them.**
 
 | Table | RLS enabled | Policy count |
 |---|---|---|
-| `documents`, `knowledge_chat_messages`, `knowledge_chat_sessions`, `knowledge_chunks`, `knowledge_collections`, `knowledge_documents`, `knowledge_gaps`, `knowledge_ingestion_jobs` | true (all 8) | **0** (all 8) |
+| `knowledge_chat_messages`, `knowledge_chat_sessions`, `knowledge_chunks`, `knowledge_collections`, `knowledge_documents`, `knowledge_gaps`, `knowledge_ingestion_jobs` | true (all 7) | **0** (all 7) |
 
-Confirmed independently via Supabase's `rls_enabled_no_policy` advisor for all 8 tables, not a sample.
+Confirmed independently via `pg_tables`/`pg_policies` and Supabase's `rls_enabled_no_policy` advisor for all 7 tables, not a sample. (The legacy `documents` table this doc previously listed as an 8th row was dropped by backlog L6 — `007_drop_legacy_documents.sql` — and no longer exists.)
 
 ## Practical effect
 

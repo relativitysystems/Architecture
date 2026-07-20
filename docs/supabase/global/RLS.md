@@ -1,6 +1,6 @@
 # Global Supabase — Row Level Security
 
-**Database Verified.** This corrects a claim in the pre-existing `architecture/SECURITY.md`: that document states "There is no Row-Level Security anywhere in either repository," based on a grep for `CREATE POLICY`/`ENABLE ROW LEVEL SECURITY` across tracked `.sql` migration files. Direct live-database inspection (via `pg_policies` and Supabase's own security advisor) shows the more precise picture:
+**Database Verified (re-checked 2026-07-19, backlog M11).** This corrects a claim in the pre-existing `architecture/SECURITY.md`: that document states "There is no Row-Level Security anywhere in either repository," based on a grep for `CREATE POLICY`/`ENABLE ROW LEVEL SECURITY` across tracked `.sql` migration files. Direct live-database inspection (via `pg_policies` and Supabase's own security advisor) shows the more precise picture:
 
 **RLS is enabled on every one of the 16 `public` tables in this project — but zero policies exist on any of them.**
 

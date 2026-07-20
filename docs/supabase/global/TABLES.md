@@ -77,7 +77,7 @@ Indexes: PK; unique `(auth_user_id)`; unique `(client_id, email)`. FK: `client_i
 | invited_by | uuid | YES | — |
 | created_at | timestamptz | NO | now() |
 
-Indexes: PK; unique `token`; plain index on `client_id`, `token`. FKs: `client_id → clients` (CASCADE), `invited_by → client_members` (SET NULL, **unindexed**). **Security note (Historical, per existing SECURITY.md):** `token` is stored in plaintext, unlike the hashed `oauth_states.state_hash` pattern.
+Indexes: PK; unique `token`; plain index on `client_id`, `token`. FKs: `client_id → clients` (CASCADE), `invited_by → client_members` (SET NULL, **unindexed**). **Security note (Historical, per existing SECURITY.md):** `token` is stored in plaintext, unlike the hashed `oauth_states.state_hash` pattern. **Backlog M2 (2026-07-19): a migration adding hash-only storage is prepared but not yet applied** — `Relativity/supabase/migrations/20260719_hash_team_invite_tokens.sql` adds `token_hash`, backfills it from the existing plaintext rows, then drops `token` entirely. The table above still reflects the live, pre-migration schema as of this writing.
 
 ---
 

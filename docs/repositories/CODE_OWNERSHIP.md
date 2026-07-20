@@ -43,8 +43,8 @@ The platform boundary confirmed by this audit (schemas, functions, and code cros
 | Integration | Owner | Provider auth model |
 |---|---|---|
 | Slack | Relativity | OAuth v2 + Events signature + encrypted `oauth_connections`/`oauth_credentials` |
-| Google Drive | Relativity | OAuth, encrypted `oauth_connections`/`oauth_credentials` (backlog H2); unsigned state (unlike Slack) |
-| Dropbox | Relativity | OAuth, encrypted `oauth_connections`/`oauth_credentials` (backlog H2); unsigned state (unlike Slack) |
+| Google Drive | Relativity | OAuth, encrypted `oauth_connections`/`oauth_credentials` (backlog H2); hashed, server-stored, single-use state (backlog M1, matching Slack) |
+| Dropbox | Relativity | OAuth, encrypted `oauth_connections`/`oauth_credentials` (backlog H2); hashed, server-stored, single-use state (backlog M1, matching Slack) |
 
 ## Open questions — Unknown
 
