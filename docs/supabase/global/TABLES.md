@@ -62,7 +62,7 @@ Indexes: PK; unique `(auth_user_id)`; unique `(client_id, email)`. FK: `client_i
 ---
 
 ### `team_invites`
-**Purpose:** pending/accepted invitations to join a client's team. **Rows:** 2. **Migration source:** `20260618_team_members.sql`.
+**Purpose:** pending/accepted invitations to join a client's team. **Rows:** 2. **Migration source:** `20260618_team_members.sql`, `20260719_hash_team_invite_tokens.sql`.
 
 | Column | Type | Nullable | Default |
 |---|---|---|---|
@@ -70,14 +70,14 @@ Indexes: PK; unique `(auth_user_id)`; unique `(client_id, email)`. FK: `client_i
 | client_id | uuid | NO | — |
 | email | text | NO | — |
 | role | text | NO | 'member' |
-| token | text | NO | — |
 | expires_at | timestamptz | NO | — |
 | accepted_at | timestamptz | YES | — |
 | revoked_at | timestamptz | YES | — |
 | invited_by | uuid | YES | — |
 | created_at | timestamptz | NO | now() |
+| token_hash | text | NO | — |
 
-Indexes: PK; unique `token`; plain index on `client_id`, `token`. FKs: `client_id → clients` (CASCADE), `invited_by → client_members` (SET NULL, **unindexed**). **Security note (Historical, per existing SECURITY.md):** `token` is stored in plaintext, unlike the hashed `oauth_states.state_hash` pattern. **Backlog M2 (2026-07-19): a migration adding hash-only storage is prepared but not yet applied** — `Relativity/supabase/migrations/20260719_hash_team_invite_tokens.sql` adds `token_hash`, backfills it from the existing plaintext rows, then drops `token` entirely. The table above still reflects the live, pre-migration schema as of this writing.
+Indexes: PK; unique `token_hash` (`uq_team_invites_token_hash`); plain index on `client_id`. FKs: `client_id → clients` (CASCADE), `invited_by → client_members` (SET NULL, **unindexed**). **Backlog M2 (2026-07-19, applied and verified via direct query):** the plaintext `token` column was dropped entirely and replaced with `token_hash` (SHA-256 hex, hashed in application code — `services/supabaseService.js#hashInviteToken` — never in SQL for any live write path), matching the hashed `oauth_states.state_hash` pattern. The 2 pre-existing rows were backfilled by the migration itself before the plaintext column was dropped; row count confirmed unchanged (2/2).
 
 ---
 
