@@ -137,7 +137,7 @@ Indexes: PK; unique `(client_id, provider)`. Trigger: `trg_oauth_tokens_updated_
 ---
 
 ### `oauth_connections` / `oauth_credentials`
-**Purpose:** current, encrypted OAuth model — Slack only, as the only provider with any code left that writes here. Google Drive and Dropbox briefly wrote here too (backlog H2), until their entire persistent-connection code path was deleted outright (backlog M15) rather than left dormant; any pre-M15 `google_drive`/`dropbox` rows are inert history, not purged as part of that change (no live Supabase MCP connection was available in that session to act on production data — a possible manual follow-up, not automated). Connection metadata (`oauth_connections`) is separated from encrypted secret material (`oauth_credentials`). **Rows:** 2 / 1 as of the last audit predating M15 — not re-verified against production at M15 time. **Migration source:** `20260714_oauth_connections.sql`.
+**Purpose:** current, encrypted OAuth model — Slack only, as the only provider with any code left that writes here. Google Drive and Dropbox briefly had this code path too (backlog H2), until it was deleted outright (backlog M15). **Verified post-M15 via direct query: zero `google_drive`/`dropbox` rows in either table** — no production connection for either provider was ever actually made (or if one was, it's already gone), so there was nothing to purge. Connection metadata (`oauth_connections`) is separated from encrypted secret material (`oauth_credentials`). **Rows:** 2 / 1, both Slack (one active connection + its credential row, one revoked connection with no credential row). **Migration source:** `20260714_oauth_connections.sql`.
 
 `oauth_connections`: `id, client_id, provider, external_account_id, external_account_name, status ('active' default), scopes_granted (text[]), provider_metadata (jsonb), connected_by_member_id, connected_at, updated_at, revoked_at`. Indexes: PK; plain indexes on `client_id`, `provider`, `status`; unique partial `(provider, external_account_id) WHERE status='active'`; unique partial `(client_id, provider) WHERE status='active'`. FKs: `client_id → clients` (CASCADE), `connected_by_member_id → client_members` (SET NULL, **unindexed**). **Performance advisor:** `idx_oauth_connections_client_id` and `idx_oauth_connections_status` both flagged unused (never scanned).
 
@@ -148,7 +148,7 @@ Write path: `services/oauthConnectionsService.js` via the `replace_active_oauth_
 ---
 
 ### `oauth_states`
-**Purpose:** CSRF protection for the Slack OAuth connect flow — stores only a SHA-256 hash of the state value, 10-minute TTL, single-use. **Rows:** 3. **Migration source:** `20260715_oauth_states.sql`.
+**Purpose:** CSRF protection for OAuth connect flows — stores only a SHA-256 hash of the state value, 10-minute TTL, single-use. **Rows:** 3, verified post-M15 — all 3 are leftover `google_drive`/`dropbox` rows (two already `consumed_at`, all past `expires_at`); zero live Slack rows at verification time. No secret material in any row. Nothing reads or writes the `google_drive`/`dropbox` path anymore (backlog M15 deleted those callback routes), so these 3 rows are permanently inert — never cleaned by app code, since no TTL sweep exists for this table for any provider. **Migration source:** `20260715_oauth_states.sql`.
 
 | Column | Type | Nullable | Default |
 |---|---|---|---|
