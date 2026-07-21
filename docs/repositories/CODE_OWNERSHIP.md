@@ -43,8 +43,8 @@ The platform boundary confirmed by this audit (schemas, functions, and code cros
 | Integration | Owner | Provider auth model |
 |---|---|---|
 | Slack | Relativity | OAuth v2 + Events signature + encrypted `oauth_connections`/`oauth_credentials` |
-| Google Drive | Relativity | OAuth, encrypted `oauth_connections`/`oauth_credentials` (backlog H2); hashed, server-stored, single-use state (backlog M1, matching Slack) |
-| Dropbox | Relativity | OAuth, encrypted `oauth_connections`/`oauth_credentials` (backlog H2); hashed, server-stored, single-use state (backlog M1, matching Slack) |
+| Google Drive | Relativity | One-shot Picker-obtained browser token only — no OAuth connect flow, no persistent connection. Previously had one (`oauth_connections`/`oauth_credentials`, backlog H2), removed entirely (backlog M15). |
+| Dropbox | Relativity | **Removed entirely (backlog M15).** Previously OAuth, encrypted `oauth_connections`/`oauth_credentials` (backlog H2); had no working import path, so the connector was deleted rather than completed. |
 
 ## Open questions — Unknown
 

@@ -65,8 +65,8 @@ The client portal is a server-rendered-static, vanilla-JavaScript single-page ap
 
 ### Integrations
 
-- Slack's integration card on the Overview tab shows Connect/Disconnect and status, and — once connected — the "Collections Slack can search" checklist described in [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md).
-- ~~Google Drive and Dropbox... neither is read or rendered anywhere in the portal frontend~~ **Resolved (backlog M8).** Both now have their own integration card in the same Overview panel (status badge + an owner/admin-only Connect button wired to the existing `/auth/google/start`/`/auth/dropbox/start` routes). Neither has a Disconnect button — no disconnect endpoint exists for either provider, so none was implied. Google Drive's one-time Picker import on the Documents tab is unchanged and separate from this connection-status display.
+- Slack's integration card on the Overview tab shows Connect/Disconnect and status, and — once connected — the "Collections Slack can search" checklist described in [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md). Slack is now the **only** integration card on the Overview tab.
+- ~~Google Drive and Dropbox... neither is read or rendered anywhere in the portal frontend~~ **Resolved (backlog M8), then reverted (backlog M15).** M8 gave both providers their own Overview integration card (status badge + an owner/admin-only Connect button wired to `/auth/google/start`/`/auth/dropbox/start`). Backlog M15 removed both cards and their entire backing persistent-OAuth-connection code path outright — not just from the UI — because neither had a scheduled use: the client's real need (one-time upload) was already served by Google Drive's separate Picker import (unaffected, still on the Documents tab), and Dropbox's connection had no working import path at all. See [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md) and [CONNECTOR_ROADMAP.md](../roadmap/CONNECTOR_ROADMAP.md) for the full removal detail.
 
 ### Admin Console (distinct from the client portal)
 
@@ -96,7 +96,7 @@ flowchart TD
 
 Not currently implemented — noted here only because the current architecture makes each a plausible next step, not because any of it exists today:
 
-- ~~Surfacing Google Drive/Dropbox connection status in the UI~~ — done (backlog M8).
+- ~~Surfacing Google Drive/Dropbox connection status in the UI~~ — done (backlog M8), then removed entirely, not merely re-hidden (backlog M15) — see Integrations above.
 - ~~Extending collection-based access control to the portal's own chat~~ — done (backlog M10).
 - ~~A UI control for the already-implemented chat-session rename endpoint~~ — done (backlog M9).
 - Additional integration cards on the Overview tab as new connectors are built, following the pattern in [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md).

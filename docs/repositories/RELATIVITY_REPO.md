@@ -35,8 +35,8 @@ Relativity/
 
 | Route file | Covers |
 |---|---|
-| `routes/auth.js` | Session, OAuth (Google, Dropbox), invites, password reset |
-| `routes/api.js` | Uploads, chat/query proxy to AIKB, gaps proxy, Google Drive file routes, analytics |
+| `routes/auth.js` | Session, invites, password reset. Google/Dropbox OAuth connect routes removed entirely (backlog M15) — Slack's OAuth lives separately in `routes/integrations/slack.js` |
+| `routes/api.js` | Uploads, chat/query proxy to AIKB, gaps proxy, Google Drive Picker import (one-shot; no persistent connection), analytics |
 | `routes/admin.js` | Admin console (clients, leads management) |
 | `routes/team.js` | Team member management |
 | `routes/leads.js` | Public lead-capture form endpoint |
@@ -61,7 +61,7 @@ Relativity/
 | `aikbService.js` | HTTP client for AIKB's management API (documents, jobs, analytics) | **Code Verified** (partial — confirms Relativity never queries AIKB tables directly except via `slackCollectionAccessService`) |
 | `aikbAskClient.js` | Signed HMAC envelope client for AIKB `/api/knowledge/ask` (Slack path) | **Structure Verified** |
 | `serviceRequestAuth.js` | HMAC-signed service-request envelope (shared design with AIKB's copy) | **Historical** |
-| `dropboxService.js`, `googleDriveService.js`, `googleDriveImportService.js` | Provider integrations — token storage now encrypted `oauth_connections`/`oauth_credentials` (backlog H2), no longer plaintext `oauth_tokens` | **Structure Verified** |
+| `googleDriveImportService.js` | Google Drive Picker import (one-shot, browser-token; the only remaining Drive/Dropbox integration code). `dropboxService.js` and `googleDriveService.js` — the persistent-OAuth-connection services (token storage was encrypted `oauth_connections`/`oauth_credentials`, backlog H2) — were deleted outright, not merely deprecated (backlog M15) | **Structure Verified** |
 | `emailService.js` | Transactional email (Resend/SMTP) | **Structure Verified** |
 | `importMetadata.js` | Source-label formatting for `document_import_log` | **Structure Verified** |
 | `openaiService.js` | Used for audio transcription only (Relativity performs no embedding/chat) | **Historical** |
