@@ -26,7 +26,8 @@ Architecture/
 │   ├── INGESTION_PIPELINE.md          — document upload → chunk → embed → index, end to end
 │   ├── CONNECTOR_FRAMEWORK.md         — Slack, Google Drive, Dropbox; pattern for future connectors
 │   ├── SERVICE_CONTRACTS.md           — the Relativity ↔ AIKB request/response contracts
-│   └── SECURITY.md                    — auth, tenant isolation, secrets, current risks
+│   ├── SECURITY.md                    — auth, tenant isolation, secrets, current risks
+│   └── EMAIL_INGESTION.md             — proposed: client-connected Gmail/Outlook ingestion (design, not implemented)
 ├── product/
 │   ├── CLIENT_PORTAL.md               — portal UX and feature surface
 │   ├── CLIENT_ONBOARDING.md           — account provisioning and initial data migration
