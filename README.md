@@ -29,6 +29,7 @@ Architecture/
 │   └── SECURITY.md                    — auth, tenant isolation, secrets, current risks
 ├── product/
 │   ├── CLIENT_PORTAL.md               — portal UX and feature surface
+│   ├── CLIENT_ONBOARDING.md           — account provisioning and initial data migration
 │   ├── KNOWLEDGE_ANALYTICS.md         — what's measured today vs. planned
 │   ├── KNOWLEDGE_GAP_DETECTION.md     — current heuristic detection vs. a full gap-review system
 │   └── AI_AGENTS.md                   — current RAG chat vs. a future agentic roadmap
@@ -70,7 +71,7 @@ Architecture/
 | Folder | Contents |
 |---|---|
 | `architecture/` | System-level technical architecture of the AIKB engine and the Relativity gateway: data model, pipelines, integration patterns, service contracts, and security. Written for engineers making backend or infrastructure changes. |
-| `product/` | Product- and feature-level documentation of user-facing capability: the client portal, analytics, knowledge-gap handling, and AI capabilities. Written for anyone scoping product work, not just backend changes. |
+| `product/` | Product- and feature-level documentation of user-facing capability: the client portal, client onboarding and data migration, analytics, knowledge-gap handling, and AI capabilities. Written for anyone scoping product work, not just backend changes. |
 | `decisions/` | Architecture decision records — what was decided, why, what alternatives were considered, and what evidence shows it was actually implemented (or not). |
 | `roadmap/` | Prioritized, evidence-based backlog (`FEATURE_BACKLOG.md`), connector sequencing (`CONNECTOR_ROADMAP.md`), and the high-level sequence tying them together (`MASTER_ROADMAP.md`). |
 | `history/` | The original architecture review's phases, findings, and milestone-by-milestone implementation record — preserved so historical reasoning isn't lost, clearly labeled so it isn't mistaken for current architecture. |
