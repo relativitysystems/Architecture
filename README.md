@@ -41,7 +41,8 @@ Architecture/
 │   ├── ADR-004-SIGNED-SERVICE-REQUESTS.md
 │   ├── ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md
 │   ├── ADR-006-OAUTH-CREDENTIAL-ENCRYPTION.md
-│   └── ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md
+│   ├── ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md
+│   └── ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md — proposed shared/dedicated routing compatibility layer
 ├── roadmap/
 │   ├── MASTER_ROADMAP.md              — high-level architecture/product sequence
 │   ├── FEATURE_BACKLOG.md             — evidence-based technical backlog, prioritized
@@ -63,6 +64,7 @@ Architecture/
 - **Before making a backend change**, read the relevant `architecture/` document first. `SYSTEM_OVERVIEW.md` orients you; `AIKB.md` and `INGESTION_PIPELINE.md` cover the knowledge engine; `CONNECTOR_FRAMEWORK.md` covers anything touching Slack, Google Drive, Dropbox, or a new integration; `SERVICE_CONTRACTS.md` covers the cross-repository API contract; `SECURITY.md` covers auth and tenant isolation and should be read before touching any auth-adjacent code.
 - **Before building a new integration**, read `CONNECTOR_FRAMEWORK.md` in full and check `roadmap/CONNECTOR_ROADMAP.md` for that connector's current status — the pattern Slack already established (encrypted OAuth, a signed service-request envelope for non-human callers, fail-closed collection scoping) is what new connectors should be consistent with.
 - **Before making a significant architectural change**, check `decisions/` for an existing ADR covering the area — and add a new one if you're making a decision of similar weight.
+- **Before changing how AIKB constructs or selects Supabase clients**, read [ADR-008](decisions/ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md). It defines a proposed client-aware provider that preserves today's shared database while leaving a controlled path to dedicated enterprise databases.
 - **Before starting new product work**, check `roadmap/FEATURE_BACKLOG.md` and `roadmap/MASTER_ROADMAP.md` — they are derived directly from dead code, documented TODOs, and known gaps found in the current codebases, and should be checked to avoid duplicating already-identified work.
 - **Every document distinguishes current implementation from future work.** Content under a "Future Roadmap," "Future Extension Points," or "Proposed, Not Implemented" heading is **not implemented** — treat it as design intent, not as a description of running code. If a document doesn't explicitly say a capability exists, verify against the codebase before relying on it; this documentation set reflects the state of both repositories at the time it was written and will drift as the code changes.
 - **Verify before you build.** Every claim in the `architecture/` and `product/` documents is sourced from a specific file and, where practical, a line reference in one of the two source repositories. If you find a discrepancy between this documentation and the code, the code is authoritative — please update the relevant document in the same change.
@@ -83,11 +85,12 @@ Architecture/
 ## Current Limitations
 
 - `vision/` and `ideas/` remain empty stubs — no company-level (non-codebase) source material has been in scope to populate them from.
-- Documentation here reflects a point-in-time review of both source repositories, most recently updated through the [ADR-007](decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) bounded-Slack-delivery-retry implementation (superseding the earlier Milestone 4 production-deployment snapshot). Neither repository is version-pinned against this documentation set, so drift is possible, especially in the connector and security areas, which change most frequently.
+- Documentation here reflects a point-in-time review of both source repositories, most recently updated through the [ADR-007](decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) bounded-Slack-delivery-retry implementation (superseding the earlier Milestone 4 production-deployment snapshot). [ADR-008](decisions/ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md) is **proposed only** and must not be treated as implemented until its acceptance criteria are verified against AIKB. Neither repository is version-pinned against this documentation set, so drift is possible, especially in the connector and security areas, which change most frequently.
 - There is no automated check tying this repository's claims back to the source repositories — accuracy currently depends on manual review at documentation-update time.
 
 ## Future Extension Points
 
 - Populate `vision/` and `ideas/` once company-level (not codebase-level) source material is available to verify against.
+- Implement the shared-first client-aware AIKB database provider described in [ADR-008](decisions/ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md) before direct static AIKB Supabase usage spreads further through email and call-transcript ingestion.
 - Add new ADRs to `decisions/` as further significant architecture decisions are made (e.g., migrating Google Drive/Dropbox to encrypted credentials). The Slack delivery-retry sweep question is decided **and implemented** — see [ADR-007](decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md).
 - Consider a lightweight process (e.g., a documentation-review step alongside major PRs to `AIKB` or `Relativity`) to keep the `architecture/` documents from drifting out of sync with the code they describe.
