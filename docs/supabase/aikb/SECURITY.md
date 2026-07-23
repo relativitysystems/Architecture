@@ -16,7 +16,7 @@ The legacy 4-arg `match_knowledge_chunks` overload has `EXECUTE` granted to `ano
 
 ## Grants
 
-Same default-schema-wide pattern as the Global project: every table grants full `arwdDxtm` to `postgres`/`anon`/`authenticated`/`service_role`. Both Supabase clients in `services/supabaseService.js` (`aikbSupabase`, `globalSupabase`) use service-role keys.
+Same default-schema-wide pattern as the Global project: every table grants full `arwdDxtm` to `postgres`/`anon`/`authenticated`/`service_role`. Both the AIKB client (constructed by `services/aikbDatabaseProvider.js` as of ADR-008, resolved per-call by `services/supabaseService.js` via `getAikbDatabase(clientId)`) and the separate, static `globalSupabase` client in `services/supabaseService.js` use service-role keys.
 
 ## Related documents
 

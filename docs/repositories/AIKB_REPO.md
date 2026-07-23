@@ -27,15 +27,17 @@ aikb/
 │   ├── client.js
 │   └── functions.js              # background ingestion + Slack question pipeline
 ├── services/                    # see table below
+│   └── aikbDatabaseProvider.js  # ADR-008 — sole constructor/resolver of the AIKB Supabase client
 ├── scripts/                     # testDocxParse.js, testPdfParse.js (manual test scripts)
-└── test/                        # 8 test files (47/47 passing as of the ADR-007 implementation)
+└── test/                        # 12 test files (74/74 passing as of the ADR-008 implementation)
 ```
 
 ## Services — verification status per row
 
 | Service | Purpose | Status |
 |---|---|---|
-| `supabaseService.js` | Primary AIKB-DB data-access layer: `knowledge_documents`, `knowledge_chunks`, `knowledge_ingestion_jobs`, `knowledge_chat_sessions`/`messages`, `knowledge_gaps`, `knowledge_collections`; also holds a second `globalSupabase` client reading `clients`/`client_members` from the Global project; `searchChunks()` calls `match_knowledge_chunks` RPC; `deleteLegacyDocumentsForClient()` targets the legacy `documents` table; `redactChatSessionByIdempotencyKey()` implements [ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)'s AIKB-side redaction (nulls session title, replaces message content with a fixed marker, nulls sources/metadata; idempotent) | **Code Verified** — read extensively across this and the prior audit turn |
+| `aikbDatabaseProvider.js` | [ADR-008](../../decisions/ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md) — the only module permitted to construct or select the AIKB Supabase client. `getAikbDatabase(clientId)` validates `clientId`, fails closed if missing/empty, and returns `{ supabase, storageBucket, mode: 'shared' }` from a single process-cached client. Every `clientId` resolves to the same shared project today; no dedicated per-client project exists. | **Code Verified** |
+| `supabaseService.js` | Primary AIKB-DB data-access layer: `knowledge_documents`, `knowledge_chunks`, `knowledge_ingestion_jobs`, `knowledge_chat_sessions`/`messages`, `knowledge_gaps`, `knowledge_collections`; resolves its AIKB client per-call via `aikbDatabaseProvider.js#getAikbDatabase(clientId)` (ADR-008) rather than constructing one itself; also holds a second, separate, static `globalSupabase` client reading `clients`/`client_members` from the Global project (untouched by ADR-008); `searchChunks()` calls `match_knowledge_chunks` RPC; `deleteLegacyDocumentsForClient()` targets the legacy `documents` table; `redactChatSessionByIdempotencyKey()` implements [ADR-007](../../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)'s AIKB-side redaction (nulls session title, replaces message content with a fixed marker, nulls sources/metadata; idempotent) | **Code Verified** — read extensively across this and the prior audit turn |
 | `documentParser.js` | Parses uploaded files (PDF/DOCX/etc.) into text prior to chunking | **Structure Verified** |
 | `chunkService.js` | Splits parsed text into chunks for embedding | **Structure Verified** |
 | `openaiService.js` | Embeddings (`text-embedding-3-small` by default) + chat completion for answer generation | **Code Verified** (partial — confirms `documents`/`knowledge_documents` reference lines) |
@@ -50,7 +52,7 @@ AIKB's own Supabase project. Full reference: [../supabase/aikb/DATABASE.md](../s
 
 7 `public` tables, all owned by this repo: `knowledge_documents`, `knowledge_chunks` (pgvector, `ivfflat` cosine index), `knowledge_ingestion_jobs`, `knowledge_chat_sessions`, `knowledge_chat_messages`, `knowledge_gaps`, `knowledge_collections`. The legacy `documents` table (see [../audits/SCHEMA_DRIFT.md](../audits/SCHEMA_DRIFT.md)) has been dropped — backlog L6, `007_drop_legacy_documents.sql`, applied and verified in production (`information_schema.tables` returns 0 rows for it).
 
-Read-only cross-project access into Global's `clients`/`client_members` for JWT-based entitlement checks (`middleware/resolveContext.js`), confirmed via the `globalSupabase` client in `supabaseService.js`.
+Read-only cross-project access into Global's `clients`/`client_members` for JWT-based entitlement checks (`middleware/resolveContext.js`), confirmed via the separate, static `globalSupabase` client in `supabaseService.js` — untouched by the ADR-008 database-routing provider, which governs the AIKB-project client only.
 
 ## Migrations — Database & Code Verified
 

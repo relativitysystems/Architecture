@@ -22,7 +22,7 @@ flowchart LR
 
 ## Multi-Tenant Design
 
-Every tenant-scoped table carries a `client_id UUID NOT NULL` column (`aikb/migrations/001_knowledge_base_schema.sql`, `003_chat_history.sql`, `006_knowledge_collections.sql`). Tenant isolation is enforced **entirely at the application layer** — every Supabase query in `services/supabaseService.js` explicitly filters `.eq('client_id', clientId)`, and the vector-search RPC (`match_knowledge_chunks`) takes `match_client_id` as a required parameter inside its own `WHERE` clause. Row-Level Security is technically enabled on every table in this schema (backlog M11, database-verified — not detectable by grepping migration files, since it was applied outside of tracked `.sql` text), but with zero policies defined, and the only Supabase client this repo ever constructs uses the service-role key (`BYPASSRLS`) — so it provides no practical backstop today. See [SECURITY.md](SECURITY.md) and [../docs/supabase/aikb/RLS.md](../docs/supabase/aikb/RLS.md) for the full detail.
+Every tenant-scoped table carries a `client_id UUID NOT NULL` column (`aikb/migrations/001_knowledge_base_schema.sql`, `003_chat_history.sql`, `006_knowledge_collections.sql`). Tenant isolation is enforced **entirely at the application layer** — every Supabase query in `services/supabaseService.js` explicitly filters `.eq('client_id', clientId)`, and the vector-search RPC (`match_knowledge_chunks`) takes `match_client_id` as a required parameter inside its own `WHERE` clause. Row-Level Security is technically enabled on every table in this schema (backlog M11, database-verified — not detectable by grepping migration files, since it was applied outside of tracked `.sql` text), but with zero policies defined, and the only AIKB Supabase client this repo ever constructs uses the service-role key (`BYPASSRLS`) — so it provides no practical backstop today. Database routing (below) is additive defense-in-depth for a future dedicated-project story; it does not replace this `client_id` filtering, and none of it changed with ADR-008. See [SECURITY.md](SECURITY.md) and [../docs/supabase/aikb/RLS.md](../docs/supabase/aikb/RLS.md) for the full detail.
 
 AIKB talks to two distinct Supabase projects, configured in `config/index.js`:
 
@@ -34,6 +34,20 @@ AIKB talks to two distinct Supabase projects, configured in `config/index.js`:
 Cross-project foreign keys are not supported by Supabase, so references into the Global project (`member_id`, `connection_id`) are stored as plain `UUID` columns with no `FK` constraint (documented explicitly in `aikb/migrations/004_member_id.sql`).
 
 Within a client, requests are further scoped by `member_id` for non-admin members — `isAdminRole` (`role === 'owner' || role === 'admin'`) determines whether a member sees only their own chat sessions/gaps or the whole client's (`services/runKnowledgeQuery.js`).
+
+### Database Routing (ADR-008)
+
+The `aikb` Supabase client in the table above is no longer constructed inline in `services/supabaseService.js`. `aikb/services/aikbDatabaseProvider.js` is now the single module permitted to construct or select it, via a client-aware entry point:
+
+```js
+const { supabase, storageBucket, mode } = await getAikbDatabase(clientId);
+```
+
+`getAikbDatabase` validates that `clientId` is a non-empty string (throwing otherwise — fails closed) and returns a lazily-constructed, process-cached client together with the current Storage bucket name and `mode: 'shared'`. **Every valid `clientId` resolves to the exact same shared AIKB Supabase client today** — there is no dedicated per-client project, no new Supabase project has been provisioned, and no client has been migrated. `services/supabaseService.js` (every ingestion, retrieval, chat-history, collection, knowledge-gap, and client-deletion function) and `inngest/functions.js` resolve their client exclusively through this provider; `routes/knowledge.js` and Inngest event handlers pass the already-authorized `clientId` (from `req.serviceRequest`, `req.context`, or `event.data.clientId`) into whichever `supabaseService.js` function needs it — no route or job reads an unvalidated `clientId` out of a request body to resolve a database.
+
+The Global Supabase client is untouched by this provider — it remains the separate, static, module-level client described in the table above, exactly as ADR-008 requires.
+
+Dedicated per-client Supabase projects are **future work only**: no `client_database_assignments` routing table exists yet in `Relativity_Global`, no dedicated-project credentials are configured, and `client_id` filtering inside every query remains mandatory regardless of how the client is resolved. See `Architecture/decisions/ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md` for the full design, including the future Global-routing-lookup shape and the migration strategy for a client that eventually moves to a dedicated project.
 
 ## Database Schema
 

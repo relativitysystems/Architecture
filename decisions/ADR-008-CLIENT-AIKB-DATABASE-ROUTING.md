@@ -1,9 +1,23 @@
 # ADR-008 — Route AIKB Data Access Through a Client-Aware Database Provider
 
-- **Status:** Proposed — not implemented
+- **Status:** Accepted — Implemented (shared-routing phase only; dedicated per-client databases remain future work)
 - **Date:** 2026-07-23
 - **Owners:** Relativity Systems
 - **Related repositories:** `relativitysystems/aikb`, `relativitysystems/Relativity`
+
+## Implementation Record
+
+Implemented 2026-07-23, in `relativitysystems/aikb` only. Every acceptance criterion below is met for the shared-project phase; dedicated databases, the `client_database_assignments` table, and any Global routing lookup are still not built — exactly as scoped.
+
+**Source references:**
+
+- `aikb/services/aikbDatabaseProvider.js` — the provider. Exports `getAikbDatabase(clientId)` (async; validates `clientId`, fails closed, returns `{ supabase, storageBucket, mode: 'shared' }` from a single lazily-constructed, process-cached Supabase client) and `getSharedAikbDatabaseForAdminOperation()` (a narrow, explicitly-documented exception used only by the one genuinely cross-client function — see below).
+- `aikb/services/supabaseService.js` — every exported function that touches AIKB's Supabase project or Storage bucket now resolves its client via `getAikbDatabase(clientId)` (the top-of-file module-scope `aikbSupabase` constant is gone). The separate `globalSupabase` client remains constructed inline in this same file, unchanged, per this ADR's requirement not to touch it. Functions that previously operated on an id alone with no `clientId` parameter (`getKnowledgeDocumentById`, `getCollectionById`, `renameCollection`, `deleteCollection`, `moveDocumentCollection`, `deleteChunksForDocument`, `insertKnowledgeChunks`, `getKnowledgeGapById`, `updateKnowledgeGapStatus`, `updateIngestionJob`, `logIngestionError`, `markDocumentIndexed`, `markDocumentDeleted`, `markDocumentError`, `downloadFromStorage`, `deleteFromStorage`, `getSlackRequestByIdempotencyKey`, `markSlackRequestDelivered`, `markSlackRequestFailed`) now take `clientId` as an explicit parameter, threaded from the caller's already-authorized context. `getDistinctClientIds` (unused cross-client admin enumeration — no route calls it) is the one documented exception: it resolves via `getSharedAikbDatabaseForAdminOperation()` instead of `getAikbDatabase(clientId)`, since it has no single client to scope to.
+- `aikb/routes/knowledge.js` and `aikb/inngest/functions.js` — every call site updated to pass the already-authorized `clientId` (from `req.serviceRequest`, `req.context`, or `event.data.clientId`) into the newly-parameterized `supabaseService.js` functions. No route or job reads an unvalidated `clientId` from a request body to resolve a database; every existing `.eq('client_id', clientId)` filter and `match_client_id` RPC parameter is unchanged.
+- `aikb/test/aikbDatabaseProvider.test.js` — new. Covers: two different valid `clientId`s resolving to the same shared client instance; the client being constructed exactly once across repeated/different-client calls (cache reuse, not per-request construction); missing/empty/malformed `clientId` failing closed; and missing `AIKB_SUPABASE_URL` configuration producing a clear startup error.
+- `aikb/test/chatSessionOriginFilter.test.js`, `aikb/test/redactChatSession.test.js`, `aikb/test/slackRequestLogService.test.js` — updated to also clear the require-cache entry for `aikbDatabaseProvider.js` (in addition to `config` and `supabaseService.js`) when substituting a fake `@supabase/supabase-js`, and to pass `clientId` to the now-reparameterized `markSlackRequestDelivered`/`markSlackRequestFailed`.
+
+**Not touched, and why:** `relativitysystems/Relativity/services/aikbService.js#getAikbSupabase()` constructs a separate AIKB Supabase Storage client directly (used only by `uploadToStorage`, for the portal's direct-to-bucket upload leg prior to calling AIKB's `/ingest` HTTP route). This is a different deployable that cannot import AIKB's in-process provider module, so it is out of this ADR's implementation scope, which targets AIKB-owned access from within AIKB's own codebase. It already independently satisfies most of this ADR's spirit (single construction site, cached, fails closed on missing config) but will need its own routing awareness — or a change to route the upload itself through AIKB's API instead of writing directly to Storage — if and when dedicated per-client projects are introduced. Tracked as follow-up work, not a gap in this implementation.
 
 ## Context
 
@@ -125,9 +139,11 @@ Rejected. Dedicated projects reduce blast radius but do not replace defense-in-d
 
 This ADR is considered implemented when:
 
-- one provider owns construction and resolution of AIKB Supabase clients;
-- all tenant-owned AIKB database and Storage paths use that provider;
-- the shared project remains the only active target;
-- existing APIs, ingestion jobs, retrieval, chat, collections, gaps, and deletion behavior remain unchanged;
-- tests cover shared routing, validation, caching, and failure behavior;
-- architecture documentation is updated from **Proposed** to **Accepted/Implemented** with verified source references.
+- [x] one provider owns construction and resolution of AIKB Supabase clients — `aikb/services/aikbDatabaseProvider.js`;
+- [x] all tenant-owned AIKB database and Storage paths use that provider — every function in `aikb/services/supabaseService.js`, called from `aikb/routes/knowledge.js` and `aikb/inngest/functions.js`;
+- [x] the shared project remains the only active target — `mode: 'shared'` always, no `client_database_assignments` table, no dedicated-project credentials configured;
+- [x] existing APIs, ingestion jobs, retrieval, chat, collections, gaps, and deletion behavior remain unchanged — full AIKB test suite passes (74/74, `npm test` in `aikb/`), no request/response contract or schema changes;
+- [x] tests cover shared routing, validation, caching, and failure behavior — `aikb/test/aikbDatabaseProvider.test.js`;
+- [x] architecture documentation is updated from **Proposed** to **Accepted/Implemented** with verified source references — this document, plus `Architecture/architecture/AIKB.md`, `Architecture/docs/repositories/AIKB_REPO.md`, and `Architecture/docs/supabase/aikb/SECURITY.md`.
+
+Not implemented (deliberately, per scope): dedicated per-client Supabase projects, the `client_database_assignments` Global routing table, any Global routing lookup inside the provider, credential rotation, and tenant cutover/migration tooling. See "Future Control-Plane Model" and "Migration Strategy" above for the design a later ADR/implementation would follow.
