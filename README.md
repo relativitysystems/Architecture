@@ -27,7 +27,8 @@ Architecture/
 │   ├── CONNECTOR_FRAMEWORK.md         — Slack, Google Drive, Dropbox; pattern for future connectors
 │   ├── SERVICE_CONTRACTS.md           — the Relativity ↔ AIKB request/response contracts
 │   ├── SECURITY.md                    — auth, tenant isolation, secrets, current risks
-│   └── EMAIL_INGESTION.md             — proposed: client-connected Gmail/Outlook ingestion (design, not implemented)
+│   ├── EMAIL_INGESTION.md             — proposed: client-connected Gmail/Outlook ingestion (design, not implemented)
+│   └── QUALITY_ASSURANCE.md           — (stub — no content yet; comprehensive QA plan to be added)
 ├── product/
 │   ├── CLIENT_PORTAL.md               — portal UX and feature surface
 │   ├── CLIENT_ONBOARDING.md           — account provisioning and initial data migration
@@ -42,7 +43,8 @@ Architecture/
 │   ├── ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md
 │   ├── ADR-006-OAUTH-CREDENTIAL-ENCRYPTION.md
 │   ├── ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md
-│   └── ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md — implemented shared-routing compatibility layer (dedicated per-client databases remain future work)
+│   ├── ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md — implemented shared-routing compatibility layer (dedicated per-client databases remain future work)
+│   └── ADR-009-EMAIL-AUTOMATIC-SYNC-SYSTEM-CLOCK.md — implemented: AIKB's cron tick as a narrow ADR-001 exception, system-scoped signed envelope
 ├── roadmap/
 │   ├── MASTER_ROADMAP.md              — high-level architecture/product sequence
 │   ├── FEATURE_BACKLOG.md             — evidence-based technical backlog, prioritized
@@ -85,6 +87,7 @@ Architecture/
 ## Current Limitations
 
 - `vision/` and `ideas/` remain empty stubs — no company-level (non-codebase) source material has been in scope to populate them from.
+- `architecture/QUALITY_ASSURANCE.md` is an empty stub — a comprehensive, repo-wide QA plan (test environments, regression policy, use-case libraries per feature, etc.) is intended for it but not yet written.
 - Documentation here reflects a point-in-time review of both source repositories, most recently updated through the [ADR-008](decisions/ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md) client-aware AIKB database-routing implementation (superseding the earlier ADR-007/Milestone 4 snapshot). ADR-008's shared-routing phase is implemented and verified against AIKB (`aikb/services/aikbDatabaseProvider.js`); dedicated per-client databases described in its "Future Control-Plane Model" and "Migration Strategy" sections remain **proposed only** and must not be treated as implemented. Neither repository is version-pinned against this documentation set, so drift is possible, especially in the connector and security areas, which change most frequently.
 - There is no automated check tying this repository's claims back to the source repositories — accuracy currently depends on manual review at documentation-update time.
 
