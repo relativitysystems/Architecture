@@ -44,7 +44,8 @@ Architecture/
 │   ├── ADR-006-OAUTH-CREDENTIAL-ENCRYPTION.md
 │   ├── ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md
 │   ├── ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md — implemented shared-routing compatibility layer (dedicated per-client databases remain future work)
-│   └── ADR-009-EMAIL-AUTOMATIC-SYNC-SYSTEM-CLOCK.md — implemented: AIKB's cron tick as a narrow ADR-001 exception, system-scoped signed envelope
+│   ├── ADR-009-EMAIL-AUTOMATIC-SYNC-SYSTEM-CLOCK.md — implemented: AIKB's cron tick as a narrow ADR-001 exception, system-scoped signed envelope
+│   └── ADR-010-LIVE-TOOL-CALLS-ORCHESTRATED-BY-AIKB.md — proposed: live-query connectors (CRM first) use AIKB-orchestrated, Relativity-executed tool calls, never ingested
 ├── roadmap/
 │   ├── MASTER_ROADMAP.md              — high-level architecture/product sequence
 │   ├── FEATURE_BACKLOG.md             — evidence-based technical backlog, prioritized
