@@ -28,6 +28,8 @@ Architecture/
 │   ├── SERVICE_CONTRACTS.md           — the Relativity ↔ AIKB request/response contracts
 │   ├── SECURITY.md                    — auth, tenant isolation, secrets, current risks
 │   ├── EMAIL_INGESTION.md             — proposed: client-connected Gmail/Outlook ingestion (design, not implemented)
+│   ├── EM10_5_STAGING_CHECKLIST.md    — Gmail real-account staging validation: fill-in-the-blanks execution record
+│   ├── STAGING_ENVIRONMENT.md         — plan for a dedicated staging environment (Supabase x2, Slack app, deployments); no cloud resources created yet
 │   └── QUALITY_ASSURANCE.md           — (stub — no content yet; comprehensive QA plan to be added)
 ├── product/
 │   ├── CLIENT_PORTAL.md               — portal UX and feature surface

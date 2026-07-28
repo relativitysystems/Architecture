@@ -36,7 +36,7 @@ Slack delivery reliability and Knowledge Collections are both implemented and te
 
 - ✅ Slack bounded delivery retries and `delivery_failed` — **completed** (see above).
 - ✅ Knowledge Collections — **completed** (Phase 4 above).
-- [ ] Manual verification of both in a staging/production-like environment before relying on them for prospect-facing demos (automated tests pass; a live Slack-workspace/portal walkthrough has not yet been separately confirmed post-implementation). See [../architecture/CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md)'s verification checklist.
+- [ ] Manual verification of both in a staging/production-like environment before relying on them for prospect-facing demos (automated tests pass; a live Slack-workspace/portal walkthrough has not yet been separately confirmed post-implementation). See [../architecture/CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md)'s verification checklist. **Blocked on a dedicated staging environment existing first** — the currently configured `.env` values are not confirmed non-production; see [../architecture/STAGING_ENVIRONMENT.md](../architecture/STAGING_ENVIRONMENT.md) for the setup plan (planned, not yet provisioned) and its revised checklist status (4 of 7 Slack items already done without staging — test suites, retry/exhaustion, dedup-replay, sweep-route removal; items 2/4/7 plus the live Collections exercise need it).
 - [ ] Remaining operational follow-ups that don't block a demo but should not be forgotten: technical-metadata retention cleanup, monitoring/alerting for `delivery_failed`/redaction-callback failures. See [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md).
 - [ ] Security/reliability items unrelated to Slack (shared-`x-api-key` gap, encrypted-credential migration for Drive/Dropbox) — continue in parallel, not blocking the track below.
 
@@ -89,7 +89,7 @@ This section tracks status, acceptance criteria, and dependencies only. The full
 - The final video is suitable for the website, direct outreach, and live sales conversations.
 
 **Dependency checklist:**
-- [ ] Slack bounded-delivery implementation verified in a staging/production-like environment (Track A, item 1 above).
+- [ ] Slack bounded-delivery implementation verified in a staging/production-like environment (Track A, item 1 above). See [../architecture/STAGING_ENVIRONMENT.md](../architecture/STAGING_ENVIRONMENT.md) for the environment this depends on (planned, not yet provisioned).
 - [ ] Knowledge Collections verified in the same environment.
 - [ ] Clean, stable, realistic demo data prepared (see [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md) for the detailed task list).
 - [ ] Polished demo account (no placeholder/test-looking content, no broken UI states) — see [../go-to-market/DEMO_VIDEO_STRATEGY.md](../go-to-market/DEMO_VIDEO_STRATEGY.md)'s account preparation checklist.
