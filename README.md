@@ -30,7 +30,7 @@ Architecture/
 │   ├── SECURITY.md                    — auth, tenant isolation, secrets, current risks
 │   ├── EMAIL_INGESTION.md             — proposed: client-connected Gmail/Outlook ingestion (design, not implemented)
 │   ├── EM10_5_STAGING_CHECKLIST.md    — Gmail real-account staging validation: fill-in-the-blanks execution record
-│   ├── LIVE_EMAIL_LOOKUP.md           — read-only, AIKB-orchestrated live mailbox lookup as an AI agent tool (ADR-010 shape), alongside — not replacing — EMAIL_INGESTION.md. Version 1 Priority 1. EL1/EL2 implemented (tool registry); EL3+ (execution, auth, UI) not yet.
+│   ├── LIVE_EMAIL_LOOKUP.md           — read-only, AIKB-orchestrated live mailbox lookup as an AI agent tool (ADR-010 shape), alongside — not replacing — EMAIL_INGESTION.md. Version 1 Priority 1. EL1–EL3 implemented (tool registry + signed no-op execution endpoint); EL4+ (real Gmail calls, auth, UI) not yet.
 │   ├── STAGING_ENVIRONMENT.md         — plan for a dedicated staging environment (Supabase x2, Slack app, deployments); no cloud resources created yet
 │   ├── PRODUCT_MATURITY.md            — single source of truth: product maturity stages (Prototype → Beta → Version 1 → Expansion → Company Operating Memory)
 │   └── QUALITY_ASSURANCE.md           — (stub — no content yet; comprehensive QA plan to be added)
