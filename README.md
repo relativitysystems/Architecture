@@ -12,8 +12,9 @@ New to the platform? Read in this order:
 
 1. **[architecture/SYSTEM_OVERVIEW.md](architecture/SYSTEM_OVERVIEW.md)** — the primary technical entry point: repository maps, responsibility matrix, data ownership, and the platform's request flows.
 2. **[decisions/](decisions/)** — the architecture decisions already made and why.
-3. **[roadmap/MASTER_ROADMAP.md](roadmap/MASTER_ROADMAP.md)** — where the platform is headed next.
-4. **[history/ARCHITECTURE_REVIEW_PHASES.md](history/ARCHITECTURE_REVIEW_PHASES.md)** — how the platform got here, for context on *why*, not just *what*.
+3. **[architecture/PRODUCT_MATURITY.md](architecture/PRODUCT_MATURITY.md)** — the single source of truth for what stage the product is in (Prototype → Beta → Version 1 → Expansion → Company Operating Memory) and what each stage requires.
+4. **[roadmap/MASTER_ROADMAP.md](roadmap/MASTER_ROADMAP.md)** — where the platform is headed next, sequenced against the stages above.
+5. **[history/ARCHITECTURE_REVIEW_PHASES.md](history/ARCHITECTURE_REVIEW_PHASES.md)** — how the platform got here, for context on *why*, not just *what*.
 
 ## Documentation Structure
 
@@ -29,14 +30,16 @@ Architecture/
 │   ├── SECURITY.md                    — auth, tenant isolation, secrets, current risks
 │   ├── EMAIL_INGESTION.md             — proposed: client-connected Gmail/Outlook ingestion (design, not implemented)
 │   ├── EM10_5_STAGING_CHECKLIST.md    — Gmail real-account staging validation: fill-in-the-blanks execution record
-│   ├── LIVE_EMAIL_LOOKUP.md           — proposed: read-only, AIKB-orchestrated live mailbox lookup as an AI agent tool (ADR-010 shape, not implemented), alongside — not replacing — EMAIL_INGESTION.md
+│   ├── LIVE_EMAIL_LOOKUP.md           — proposed: read-only, AIKB-orchestrated live mailbox lookup as an AI agent tool (ADR-010 shape, not implemented), alongside — not replacing — EMAIL_INGESTION.md. Version 1 Priority 1.
 │   ├── STAGING_ENVIRONMENT.md         — plan for a dedicated staging environment (Supabase x2, Slack app, deployments); no cloud resources created yet
+│   ├── PRODUCT_MATURITY.md            — single source of truth: product maturity stages (Prototype → Beta → Version 1 → Expansion → Company Operating Memory)
 │   └── QUALITY_ASSURANCE.md           — (stub — no content yet; comprehensive QA plan to be added)
 ├── product/
 │   ├── CLIENT_PORTAL.md               — portal UX and feature surface
 │   ├── CLIENT_ONBOARDING.md           — account provisioning and initial data migration
-│   ├── KNOWLEDGE_ANALYTICS.md         — what's measured today vs. planned
-│   ├── KNOWLEDGE_GAP_DETECTION.md     — current heuristic detection vs. a full gap-review system
+│   ├── KNOWLEDGE_ANALYTICS.md         — what's measured today vs. the Knowledge Analytics v2 strategic initiative (Version 1 Priority 3)
+│   ├── KNOWLEDGE_COVERAGE.md          — proposed strategic initiative: coverage score, missing sources, staleness, recommendations (Version 1 Priority 2)
+│   ├── KNOWLEDGE_GAP_DETECTION.md     — current heuristic detection vs. a full gap-review system; the main input to Knowledge Coverage
 │   └── AI_AGENTS.md                   — current RAG chat vs. a future agentic roadmap
 ├── decisions/                         — architecture decision records (ADRs)
 │   ├── ADR-001-RELATIVITY-OWNS-INTEGRATIONS.md
@@ -71,7 +74,7 @@ Architecture/
 - **Before building a new integration**, read `CONNECTOR_FRAMEWORK.md` in full and check `roadmap/CONNECTOR_ROADMAP.md` for that connector's current status — the pattern Slack already established (encrypted OAuth, a signed service-request envelope for non-human callers, fail-closed collection scoping) is what new connectors should be consistent with.
 - **Before making a significant architectural change**, check `decisions/` for an existing ADR covering the area — and add a new one if you're making a decision of similar weight.
 - **Before changing how AIKB constructs or selects Supabase clients**, read [ADR-008](decisions/ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md). It defines the implemented client-aware provider (`aikb/services/aikbDatabaseProvider.js`) that preserves today's shared database while leaving a controlled path to dedicated enterprise databases — every AIKB database/Storage path must go through it, not a new direct `@supabase/supabase-js` client.
-- **Before starting new product work**, check `roadmap/FEATURE_BACKLOG.md` and `roadmap/MASTER_ROADMAP.md` — they are derived directly from dead code, documented TODOs, and known gaps found in the current codebases, and should be checked to avoid duplicating already-identified work.
+- **Before starting new product work**, check `architecture/PRODUCT_MATURITY.md` for which stage the work belongs to, then `roadmap/MASTER_ROADMAP.md` and `roadmap/FEATURE_BACKLOG.md` for sequencing and item-level detail — the backlog is derived directly from dead code, documented TODOs, and known gaps found in the current codebases, and should be checked to avoid duplicating already-identified work.
 - **Every document distinguishes current implementation from future work.** Content under a "Future Roadmap," "Future Extension Points," or "Proposed, Not Implemented" heading is **not implemented** — treat it as design intent, not as a description of running code. If a document doesn't explicitly say a capability exists, verify against the codebase before relying on it; this documentation set reflects the state of both repositories at the time it was written and will drift as the code changes.
 - **Verify before you build.** Every claim in the `architecture/` and `product/` documents is sourced from a specific file and, where practical, a line reference in one of the two source repositories. If you find a discrepancy between this documentation and the code, the code is authoritative — please update the relevant document in the same change.
 

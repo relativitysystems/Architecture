@@ -23,6 +23,31 @@ Every connector should follow the reusable pattern extracted from Slack's implem
 | **Meeting transcripts** (e.g. Zoom, Gong-style sources) | **Future** | Not yet designed | Would be a Connected Source (Import/Sync role), not a Knowledge Surface — no one "asks a question" through a transcript feed. |
 | **CRM systems** | **Future** | Not yet designed | Would be a Connected Source; no adapter or schema work has started. |
 
+## Automatic Sync Convergence (Roadmap Priority)
+
+**"Connect once, stay updated automatically" is the long-term experience every connector should converge toward.** See [MASTER_ROADMAP.md](MASTER_ROADMAP.md)'s Version 1 Priority 4 (Automatic Sync Polish) and [PRODUCT_MATURITY.md](../architecture/PRODUCT_MATURITY.md)'s Stage 2/3 notes on automatic synchronization. Today, Gmail is the only connector with a real recurring-sync mechanism — every other connector is one-shot or purely event-driven. The table below states the six-part convergence target and each connector's distance from it, so this gap is tracked as one coherent roadmap item rather than re-discovered separately for each connector.
+
+The six-part target, per connector:
+
+| Requirement | What it means |
+|---|---|
+| Background synchronization | Content updates without a manual click, on a recurring schedule or push trigger |
+| Version tracking | The system knows which version of a source it last saw, not just "have we ever seen this before" |
+| Change detection | A modified or deleted source item is detected and reconciled (re-ingested or tombstoned), not silently stale |
+| Retry handling | A transient sync failure is retried with bounded backoff, not left to fail silently until the next scheduled attempt |
+| Health monitoring | A visible status per connection (last successful sync, failure streak) — feeds [KNOWLEDGE_COVERAGE.md](../product/KNOWLEDGE_COVERAGE.md)'s connector-completeness signal |
+| User notifications | The client is told when a connector needs attention (auth expired, sync failing), not left to discover it by noticing stale answers |
+
+| Connector | Background sync | Version tracking | Change detection | Retry handling | Health monitoring | User notifications | Gap to close |
+|---|---|---|---|---|---|---|---|
+| **Gmail** | ✅ (EM8, cron tick, 20 min default) | ✅ (`email_sync_state` cursor) | ✅ (label removal/policy-change reconciliation, EM9) | Partial — a failed tick simply waits for the next interval, no bounded in-tick retry | Partial — sync-run history view exists (EM7); no proactive alerting | ❌ | Alerting on sync failure/auth expiry; extend the existing sync-run view into the unified health surface below |
+| **Slack** | ❌ (event-driven only — a message triggers a reply, there is no "synced content" to refresh) | N/A (no ingested content — Slack is Q&A only, not an ingestion source) | N/A | ✅ (bounded delivery retries, terminal `delivery_failed`, [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)) | Partial — `delivery_failed` state exists; no monitoring/alerting on a rise in it | ❌ | Slack's retry/health gap is about *delivery* reliability, not sync — its convergence target is narrower than Drive's; alerting is the real open item |
+| **Google Drive** | ❌ (one-shot Picker import only) | ❌ | ❌ | N/A (one-shot — nothing to retry against) | ❌ | ❌ | The largest gap of any current connector — no recurring sync exists at all; would require rebuilding a persistent connection (removed in backlog M15) alongside a real sync engine, not standalone in advance |
+| **Microsoft Teams** (planned) | Not built | Not built | Not built | Not built | Not built | Not built | Should be designed against this six-part target from the start, not retrofitted after a Slack-shaped MVP ships |
+| **Outlook** (planned, EM12) | Would mirror Gmail's cron-tick mechanism (already provider-agnostic) | Would mirror Gmail's cursor model | Would mirror Gmail's reconciliation pattern | Would mirror Gmail | Would extend the same unified health surface | Would extend the same notification mechanism | Gmail's design is the template; the mechanism itself needs no rework, only a Graph adapter |
+
+**Recommended near-term scope for the Automatic Sync Polish priority** (see [MASTER_ROADMAP.md](MASTER_ROADMAP.md)): (1) a unified connector-health surface that generalizes Gmail's existing sync-run view to every connector rather than building a fourth bespoke view, (2) alerting/notification on sync failure or auth expiry for at least Gmail and Slack (the two connectors with the infrastructure to detect failure already), (3) a decision on whether Google Drive gets a real recurring-sync engine in Version 1 or remains explicitly one-shot until a later stage — the current documentation record (backlog M15) argues against rebuilding a persistent connection "standalone in advance," which cuts against doing this inside Version 1 unless a real sync engine ships alongside it.
+
 ## Shared Connector Primitives (Implemented)
 
 - **OAuth**: `oauth_connections` (metadata) + `oauth_credentials` (AES-256-GCM ciphertext). One active connection per `(client_id, provider)` for Slack/Google Drive/Dropbox, and (since EM1, 2026-07-23) one active connection per `(client_id, provider, connected_by_member_id)` for `gmail`/`microsoft` specifically — two provider-partitioned partial unique indexes, not one — so multiple members of the same client can each hold their own active Gmail/Microsoft connection. One active organization per `(provider, external_account_id)` regardless of provider. `provider` CHECK constraint already lists `slack`, `microsoft`, `gmail`, `google_drive`, `dropbox` — adding a new provider needs no schema change, only a new adapter. See [../architecture/EMAIL_INGESTION.md](../architecture/EMAIL_INGESTION.md)'s Implementation Record.
@@ -42,7 +67,10 @@ Every connector should follow the reusable pattern extracted from Slack's implem
 ## Related Documents
 
 - [../architecture/CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md)
+- [../architecture/PRODUCT_MATURITY.md](../architecture/PRODUCT_MATURITY.md) — stage sequencing this roadmap advances
+- [../product/KNOWLEDGE_COVERAGE.md](../product/KNOWLEDGE_COVERAGE.md) — connector completeness/health feeds this initiative
 - [../decisions/ADR-001-RELATIVITY-OWNS-INTEGRATIONS.md](../decisions/ADR-001-RELATIVITY-OWNS-INTEGRATIONS.md)
 - [../decisions/ADR-003-SLACK-EVENTS-LIVE-IN-RELATIVITY.md](../decisions/ADR-003-SLACK-EVENTS-LIVE-IN-RELATIVITY.md)
+- [../decisions/ADR-009-EMAIL-AUTOMATIC-SYNC-SYSTEM-CLOCK.md](../decisions/ADR-009-EMAIL-AUTOMATIC-SYNC-SYSTEM-CLOCK.md) — the automatic-sync mechanism Gmail already proved and other connectors should reuse
 - [MASTER_ROADMAP.md](MASTER_ROADMAP.md)
 - [FEATURE_BACKLOG.md](FEATURE_BACKLOG.md)

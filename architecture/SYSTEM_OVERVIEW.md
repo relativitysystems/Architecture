@@ -227,5 +227,6 @@ These affect the whole architecture, not just one document — see the linked do
 - [SECURITY.md](SECURITY.md) — authentication, tenant isolation, current risks
 - [../product/CLIENT_PORTAL.md](../product/CLIENT_PORTAL.md) — the portal product surface
 - [../decisions/](../decisions/) — architecture decision records
+- [PRODUCT_MATURITY.md](PRODUCT_MATURITY.md) — what stage the product is in and what each stage requires
 - [../roadmap/MASTER_ROADMAP.md](../roadmap/MASTER_ROADMAP.md) — where the platform is headed next
 - [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md) — how the platform got here

@@ -52,7 +52,35 @@ flowchart LR
 
 ~~**Two overlapping endpoints** (`/summary` and `/analytics`) compute similar aggregates independently on every call, with no shared computation or caching layer between them.~~ **Resolved (backlog L5).** The underlying query duplication was actually three-way, not two — `/summary`, `/analytics`, and `/jobs` all independently queried `knowledge_ingestion_jobs` for the same client (up to 4 separate reads across the three routes for one client), and `/summary`/`/analytics` duplicated `knowledge_chat_messages` and `knowledge_gaps` counts identically. This mattered in practice because Relativity's admin dashboard (`GET /admin/clients`) fired all three routes in parallel for **every client** on every page load. Fixed by adding `getClientKnowledgeStats`/`GET /api/knowledge/stats/:clientId`, which computes each underlying table exactly once, and switching the two admin routes to call it instead of the three separate functions. `/summary`, `/analytics`, and `/jobs` themselves are unchanged and still work standalone (still used by the portal and by `routes/api.js`'s own `/knowledge/jobs` route) — this was additive, not a breaking change, verified by a live diff against a real client showing the new endpoint's output is a byte-for-byte union of the three old ones.
 
-## Future Roadmap
+## Strategic Initiative: Knowledge Analytics v2
+
+**Status: proposed, not implemented.** Cross-referenced from [MASTER_ROADMAP.md](../roadmap/MASTER_ROADMAP.md) (Version 1 Priority 3) and [../architecture/PRODUCT_MATURITY.md](../architecture/PRODUCT_MATURITY.md) (Stage 3, Intelligence pillar). This section replaces the old, narrower "Future Roadmap" list below with a single coherent initiative — the individual bullets that list used to contain (client-facing view, time-series, dashboard tile) are still true and are folded into this initiative rather than tracked as separate, disconnected asks.
+
+**The point of this initiative is to help a customer improve their organization's knowledge, not to give them charts to look at.** A chart showing "47 questions asked this week" is decoration; a signal showing "these 12 questions kept getting low-confidence answers, and they cluster around your refund policy" is something a business owner can act on. Every capability below should be designed against that bar — if a metric doesn't suggest an action, reconsider whether it belongs on the surface at all.
+
+### Proposed capabilities
+
+| Capability | What it tells the customer | Builds on |
+|---|---|---|
+| Most searched topics | What employees actually ask about most — informs what to document better or promote in onboarding | `knowledge_chat_messages` (question text), not yet aggregated by topic |
+| Search trends | Whether question volume is growing, shrinking, or spiking around a specific topic or time | Time-series over the above — not yet built (see Current Limitations) |
+| Low-confidence answers | Which answers the model itself signaled uncertainty on, distinct from a full knowledge gap — an earlier warning signal than gap detection alone | New — no confidence signal is captured today; would require a change to `runKnowledgeQuery`'s existing generation step |
+| Stale documents | Documents that haven't been updated in a long time, surfaced as an analytics signal (distinct from [KNOWLEDGE_COVERAGE.md](KNOWLEDGE_COVERAGE.md)'s per-source freshness score — this is the per-document drill-down) | `knowledge_documents.updated_at` |
+| Duplicate content | Documents or chunks whose content substantially overlaps, suggesting redundant uploads worth consolidating | New — no similarity-clustering pass exists today; a candidate use of the same embeddings already computed for retrieval |
+| Connector health | Per-connector status (last successful sync, failure rate) as an analytics signal, not just an operational one — see [MASTER_ROADMAP.md](../roadmap/MASTER_ROADMAP.md)'s Automatic Sync Polish and Trust pillar in [PRODUCT_MATURITY.md](../architecture/PRODUCT_MATURITY.md) for the operational half of this same data | `email_sync_state`, `slack_event_log`, future per-connector sync-state tables |
+| Sync/ingestion statistics | Volume ingested per connector per period — a growth/health signal, not just a debugging aid | `knowledge_ingestion_jobs` (already queried by `getClientKnowledgeStats`) |
+| Unused knowledge | Documents that are indexed but never retrieved by any query — a signal that content may be miscategorized, poorly worded, or genuinely not needed | `knowledge_chunks` retrieval logs — not currently tracked per-chunk; would need a new "was this chunk ever returned" signal |
+| Citation frequency | Which documents get cited most/least often — a direct proxy for which content is actually valuable to employees | Existing `sources[]` structure on `knowledge_chat_messages`, not yet aggregated |
+| Knowledge growth over time | Document/chunk count over time — a simple, motivating growth chart for a client to see their knowledge base maturing | `knowledge_documents.created_at` — needs a time-bucketed query, not a new table |
+
+### Design considerations (not yet decided)
+
+- **Reuse the existing shared query helpers.** `fetchRecentIngestionJobs`/`fetchUserQuestionTimestamps`/`fetchKnowledgeGapsCount` (backlog L5) already compute several of the raw numbers several rows above need — extend them rather than adding a fourth parallel query path per endpoint.
+- **Time-series requires a real design decision**, not an incremental extension: either a new aggregation table populated on a schedule, or a query pattern that buckets existing timestamp columns on demand. Neither exists today; this document does not pick one.
+- **Low-confidence answers and unused-knowledge/duplicate-content detection are the two genuinely new capabilities** in this list — everything else is an aggregation or presentation layer over data that already exists somewhere in the schema.
+- **Client-facing framing matters more than technical accuracy.** Per the initiative's own framing above, prefer "these questions aren't well answered yet" over "47% of queries returned similarity scores below 0.4" — the latter is true but not actionable to a business owner.
+
+## Current Limitations (unchanged from before this initiative)
 
 Everything in this section is **not currently implemented**. It is listed because the current architecture (existing aggregation functions, existing tables) makes each item a plausible, low-friction next step — not because any of it exists today.
 
@@ -61,3 +89,10 @@ Everything in this section is **not currently implemented**. It is listed becaus
 - Time-series metrics (e.g., questions per day) — would require a new aggregation table or a query pattern not present in either function today.
 - ~~A cross-client question-count rollup for the admin console~~ — done (backlog M7); rendering it as a visible dashboard tile (no consumer exists yet) remains open.
 - ~~An admin- or client-facing view of individual knowledge-gap questions~~ — the admin side is done (backlog M5, see [KNOWLEDGE_GAP_DETECTION.md](KNOWLEDGE_GAP_DETECTION.md)); a client-facing view remains open.
+
+## Related Documents
+
+- [../roadmap/MASTER_ROADMAP.md](../roadmap/MASTER_ROADMAP.md) — Version 1 Priority 3
+- [../architecture/PRODUCT_MATURITY.md](../architecture/PRODUCT_MATURITY.md) — Stage 3, Intelligence pillar
+- [KNOWLEDGE_COVERAGE.md](KNOWLEDGE_COVERAGE.md) — the sibling Intelligence-pillar initiative (completeness/health, vs. this document's usage/value framing)
+- [KNOWLEDGE_GAP_DETECTION.md](KNOWLEDGE_GAP_DETECTION.md) — the existing gap-detection data this initiative's "low-confidence answers" capability is adjacent to

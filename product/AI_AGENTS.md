@@ -62,3 +62,5 @@ Everything below is **not currently implemented**. It is included because the ex
 - **Streaming responses**: not implemented today; would improve perceived responsiveness for both the current single-shot pipeline and any future multi-step agent loop.
 
 Any of the above would be a significant architectural addition, not an incremental change to the current pipeline — they are listed as directions the existing RAG architecture could grow toward, not as scoped or scheduled work.
+
+**Roadmap sequencing**: [../roadmap/MASTER_ROADMAP.md](../roadmap/MASTER_ROADMAP.md) places this document's roadmap as Version 1 Priority 8 (Advanced AI Agents) and Stage 4 in [../architecture/PRODUCT_MATURITY.md](../architecture/PRODUCT_MATURITY.md) — deliberately last, since it builds on the tool-calling infrastructure [LIVE_EMAIL_LOOKUP.md](../architecture/LIVE_EMAIL_LOOKUP.md) (Priority 1) establishes for the first time in either codebase, and Workflow Automation (Priority 7) is expected to reuse the same bounded-tool-call pattern before this priority's more open-ended agent loops are attempted.
