@@ -1,6 +1,6 @@
 # Live Email Lookup — Architecture and Implementation Plan
 
-**Status of this document: Proposed. Nothing described here is implemented.** No code exists in `relativitysystems/Relativity` or `relativitysystems/aikb` for any tool, endpoint, or UI described below. This document is planning only, per the request that produced it.
+**Status of this document: Proposed, with implementation underway. EL2 (read-only tool registry, [§Milestone Plan](#el2--read-only-tool-registry)) is implemented as of 2026-07-30; EL1 (this document's own architecture/contracts, plus the ADR-010 clarification below) is also done. EL3 onward remain unimplemented** — no execution endpoint, no Gmail call, no authorization, and no portal/Slack UI exists in `relativitysystems/Relativity` or `relativitysystems/aikb` yet. Treat each milestone's own Status line as authoritative over this banner if the two ever disagree.
 
 Source repositories: `relativitysystems/Relativity` and `relativitysystems/aikb`. Cross-reference [ADR-010](../decisions/ADR-010-LIVE-TOOL-CALLS-ORCHESTRATED-BY-AIKB.md) (authoritative for the orchestration boundary this plan implements — see [ADR-010 Conformance](#adr-010-conformance-and-one-proposed-clarification) below for the one place this plan asks for a narrow, explicit clarification), [EMAIL_INGESTION.md](EMAIL_INGESTION.md) (the existing ingestion pipeline this plan sits beside, not replaces), [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md) (why a live-query connector does not follow the ingestion pattern), [SERVICE_CONTRACTS.md](SERVICE_CONTRACTS.md) and [SECURITY.md](SECURITY.md) (the signed-envelope mechanism this plan reuses unchanged), and [../product/AI_AGENTS.md](../product/AI_AGENTS.md) (confirms: **no tool/function calling exists anywhere in either codebase today** — this plan is the first).
 
@@ -571,6 +571,7 @@ This reordering is compatible with every dependency listed in each milestone bel
 - **Deferred**: everything else.
 
 ### EL2 — Read-only tool registry
+- **Status: Implemented (2026-07-30).** See the Implementation Record immediately below for exact file references. EL3 onward remain unimplemented.
 - **Objective**: define the tool schemas as real, validated JSON Schema objects in code (both repos need to agree on the shape), with no execution wiring yet — mirrors [EMAIL_INGESTION.md](EMAIL_INGESTION.md)'s own EM1 ("land the schema, wire nothing yet") precedent.
 - **Repos**: AIKB (tool schema definitions passed to `tools:`), Relativity (argument-validation schema, reusing the `validateRule`-style convention).
 - **Likely files**: `aikb/services/emailToolSchemas.js` (new), `Relativity/services/emailToolValidation.js` (new).
@@ -581,6 +582,18 @@ This reordering is compatible with every dependency listed in each milestone bel
 - **Tests**: schema-validation unit tests (valid/invalid argument shapes), mirroring `emailPolicyService.test.js`'s `validateRule` convention.
 - **Acceptance criteria**: both repos' schema definitions are provably identical (a shared-fixture test, mirroring how `serviceRequestAuth.js`'s signing-string format is cross-verified today).
 - **Deferred**: execution, authorization, Gmail calls.
+
+#### EL2 Implementation Record
+
+`aikb/services/emailToolSchemas.js` (new) defines `TOOL_NAMES`, `SEARCH_EMAIL_MESSAGES_TOOL`, `GET_EMAIL_CONTENT_TOOL`, and `EMAIL_TOOLS` — plain data, no factory, no DI, matching `openaiService.js`'s existing precedent of extracting anything network-free into directly-testable pure exports. Both tools' `parameters` match §4.2/§4.3 exactly: every field optional (`required: []`), `additionalProperties: false`, `mailboxScope` restricted to the `'mine'` enum. `get_email_content`'s "exactly one of messageId/threadId" constraint is documented in the tool description (plain JSON Schema can't express it) and enforced in code on the Relativity side, per the plan's own note. 6 new tests in `aikb/test/emailToolSchemas.test.js` (pure assertions — array shape, per-tool `parameters` deep-equal against a hardcoded fixture with descriptions stripped, `required`/`additionalProperties` checks).
+
+`Relativity/services/emailToolValidation.js` (new) mirrors `emailPolicyService.js#validateRule`'s convention byte-for-byte: hand-rolled checks (confirmed no schema-validation library exists in either repo), throws a plain `Error` with `.status = 400` and a field-naming message on the first invalid field, returns a normalized object on success. `validateSearchEmailMessagesArgs`/`validateGetEmailContentArgs` reject unknown keys, wrong types, an out-of-order date range, and — the one real business rule beyond type-checking — a `maxResults`/`maxMessagesInThread` above the new hard caps below (rejected, never silently clamped) and `get_email_content`'s neither/both `messageId`/`threadId` cases. 32 new tests in `Relativity/test/emailToolValidation.test.js`.
+
+New config (`Relativity/config/index.js`, `.env.example`): `email.liveLookup.{maxResultsPerSearch, defaultResultsPerSearch, maxMessagesPerThread, defaultMessagesPerThread}` (defaults 25/10/20/5, matching §4's stated caps exactly), via the existing `parsePositiveInt` convention, env vars `EMAIL_LIVE_LOOKUP_MAX_RESULTS`/`EMAIL_LIVE_LOOKUP_DEFAULT_RESULTS`/`EMAIL_LIVE_LOOKUP_MAX_THREAD_MESSAGES`/`EMAIL_LIVE_LOOKUP_DEFAULT_THREAD_MESSAGES`.
+
+**Cross-repo "provably identical" acceptance criterion**: since the two repos share no package, this is satisfied the same way `serviceRequestAuth.js`'s signing-string format already is — two independent hardcoded fixtures (one per repo's test file), each commented with a pointer to its counterpart, verified by manual side-by-side review (done at implementation time) rather than a live cross-process check. A future change to one schema without the other is caught at PR review, not automatically.
+
+Full suites green: 731/731 Relativity, 141/141 AIKB (both include this milestone's new tests). No route, no execution, no authorization, no Gmail call exists yet — confirmed by grep, nothing outside the two new files and the config/env additions above changed.
 
 ### EL3 — Signed AIKB-to-Relativity execution endpoint
 - **Objective**: `POST /api/tools/execute` exists, authenticates via the existing `signServiceRequest`/`requireServiceRequest` (clientId-scoped, unchanged), and can execute exactly one hardcoded no-op tool end-to-end (proves the plumbing before any real Gmail call is wired in) — mirrors how EM1 proved the schema/migration layer before EM2 added real OAuth.
