@@ -59,6 +59,10 @@ Concretely:
 
 None yet — this ADR is Proposed and intentionally precedes implementation tasks, per the request that produced it.
 
+## Second Proposed Application, and a Confirmed Clarification
+
+A second live-query connector plan now exists applying this ADR's shape: [LIVE_EMAIL_LOOKUP.md](../architecture/LIVE_EMAIL_LOOKUP.md) (read-only Gmail search/content tools, alongside — not replacing — the existing Gmail *ingestion* pipeline in [EMAIL_INGESTION.md](../architecture/EMAIL_INGESTION.md)). It applies every decision point above unchanged (orchestration in AIKB, execution in Relativity via a generic `POST /api/tools/execute`, the existing signed-envelope mechanism, fail-closed authorization, nothing ingested, a small fixed named tool set) and **confirms one narrow clarification of item 7's "recommended: one tool call per question," approved 2026-07-30**: that plan's tool registry needs, in the specific search-then-fetch shape only (search finds a candidate, a second call fetches its full content), a hard maximum of **two** tool calls per question, structured only as one `search_email_messages` call optionally followed by one `get_email_content` call for a result the first call returned — never a general multi-step loop, and never a third call of any kind. This is exactly the deliberate, explicit treatment this ADR's own item 7 calls for ("a future ADR should raise this bound deliberately, not by default") — recorded here as confirmed for the email live-lookup connector specifically, not as a blanket change to this ADR's own default for every future live-query connector, which remains one call unless a future connector's own plan makes the same explicit case.
+
 ## Related Documents
 
 - [ADR-001-RELATIVITY-OWNS-INTEGRATIONS.md](ADR-001-RELATIVITY-OWNS-INTEGRATIONS.md)
@@ -67,5 +71,7 @@ None yet — this ADR is Proposed and intentionally precedes implementation task
 - [ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md](ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md)
 - [ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md](ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)
 - [../architecture/CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md)
+- [../architecture/EMAIL_INGESTION.md](../architecture/EMAIL_INGESTION.md)
+- [../architecture/LIVE_EMAIL_LOOKUP.md](../architecture/LIVE_EMAIL_LOOKUP.md) — second proposed application of this ADR, and the requested two-call clarification above
 - [../product/AI_AGENTS.md](../product/AI_AGENTS.md)
 - [../roadmap/CONNECTOR_ROADMAP.md](../roadmap/CONNECTOR_ROADMAP.md)

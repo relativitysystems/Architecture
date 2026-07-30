@@ -117,6 +117,7 @@ Not scheduled, but a plausible next step given the current architecture (see [CO
 - Client-facing analytics (question volume, document counts, gap trends) — the backend already computes most of the needed data; only rendering is missing. See [../product/KNOWLEDGE_ANALYTICS.md](../product/KNOWLEDGE_ANALYTICS.md).
 - ~~An admin review workflow for knowledge gaps, using the already-defined `status` lifecycle~~ — done (backlog M5). See [../product/KNOWLEDGE_GAP_DETECTION.md](../product/KNOWLEDGE_GAP_DETECTION.md).
 - Tool/function calling and multi-step retrieval loops, moving from single-shot RAG toward more agentic behavior — no work started, no schema exists. See [../product/AI_AGENTS.md](../product/AI_AGENTS.md).
+- **Live email lookup (proposed, not scheduled)**: a fully-specified plan, [../architecture/LIVE_EMAIL_LOOKUP.md](../architecture/LIVE_EMAIL_LOOKUP.md), for read-only, AIKB-orchestrated, request-scoped live Gmail search/content tools (ADR-010 shape) alongside — not replacing — the existing Gmail ingestion pipeline. Twelve milestones (EL1–EL12), sequenced to start only after this backlog's Go-to-Market priority and Track A items, since it is a new capability, not a reliability fix. Depends on [EM10.5](../architecture/EMAIL_INGESTION.md#em105--gmail-staging-validation) (real-account validation of the ingestion pipeline it shares OAuth/normalization code with) having run first.
 
 ## Related Documents
 

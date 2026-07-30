@@ -219,6 +219,22 @@ Every other route (`/query`, `/gaps`, `/reindex`, `DELETE /document/:id`) has no
 
 ## Proposed, Not Implemented
 
+### POST `/api/tools/execute` (proposed — [ADR-010](../decisions/ADR-010-LIVE-TOOL-CALLS-ORCHESTRATED-BY-AIKB.md), [LIVE_EMAIL_LOOKUP.md](LIVE_EMAIL_LOOKUP.md))
+
+**Owner:** Relativity · **Caller:** AIKB (reversed direction from every other clientId-scoped route below — AIKB signs, Relativity verifies, the same reversed shape `/deliver` already uses)
+
+**Authentication (proposed):** the existing clientId-scoped `signServiceRequest`/`requireServiceRequest` envelope ([ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md)) — no new signing scheme, per ADR-010 item 3.
+
+**Request (proposed):** signed envelope wrapping `{ toolName, args, requestingMemberId, origin, originMetadata }` — `toolName` bounded to a small, fixed, versioned registry (initially two email tools, [LIVE_EMAIL_LOOKUP.md §4](LIVE_EMAIL_LOOKUP.md#4-tool-registry)); `clientId` comes only from the verified envelope, never the payload, matching every other signed route in this document.
+
+**Response (proposed):** a provider-agnostic, capped JSON result, or a distinct `{status: "unavailable"|"error", reason}` shape — never an empty-match result standing in for an authorization failure or a provider error (see that document's §9 for the full enumerated reason list).
+
+**Authorization rules (proposed):** Relativity resolves `requestingMemberId`'s own mailbox connection and re-runs the full authorization gate (connection active, role, `search_enabled`, a new independent `live_lookup_enabled` toggle, organization deny-rules) before ever calling the underlying provider API — nothing this route returns is ever ingested (ADR-010 item 5).
+
+**Idempotency:** none proposed — a read-only lookup has no side effect to dedupe.
+
+**Notes:** this is the second connector proposed to use ADR-010's shape (CRM was the first, still unbuilt); no code exists for this route today.
+
 The following were proposed during the original architecture review and are **not implemented**. They are preserved here only to make clear they are not current behavior; see [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md) for the full original proposal.
 
 - A unified, signed `ServiceRequest` envelope (`organizationId`, resolved principal, signed `entitledCollectionIds`, `origin`, idempotency key) replacing the shared `x-api-key` on **every** route. Only a narrower subset — `/ask`, `/deliver`, `/chat/redact`, and (backlog H4, completed) 14 more clientId-scoped routes — was built; `x-api-key` itself has not been removed anywhere (the envelope is additive, not a replacement), but every clientId-scoped AIKB route now also requires it. See [ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md).
@@ -233,4 +249,6 @@ The following were proposed during the original architecture review and are **no
 - [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md) — Slack route detail
 - [AIKB.md](AIKB.md) — `runKnowledgeQuery` and retrieval detail
 - [../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md)
+- [../decisions/ADR-010-LIVE-TOOL-CALLS-ORCHESTRATED-BY-AIKB.md](../decisions/ADR-010-LIVE-TOOL-CALLS-ORCHESTRATED-BY-AIKB.md)
+- [LIVE_EMAIL_LOOKUP.md](LIVE_EMAIL_LOOKUP.md) — the proposed `POST /api/tools/execute` contract in full
 - [../history/ARCHITECTURE_REVIEW_PHASES.md](../history/ARCHITECTURE_REVIEW_PHASES.md)

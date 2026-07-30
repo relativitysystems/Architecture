@@ -100,3 +100,4 @@ Not currently implemented — noted here only because the current architecture m
 - ~~Extending collection-based access control to the portal's own chat~~ — done (backlog M10).
 - ~~A UI control for the already-implemented chat-session rename endpoint~~ — done (backlog M9).
 - Additional integration cards on the Overview tab as new connectors are built, following the pattern in [CONNECTOR_FRAMEWORK.md](../architecture/CONNECTOR_FRAMEWORK.md).
+- **Proposed**: a chat mode selector (Company knowledge / Live email / Automatic), a "Searching connected email…" activity state, and a distinct "Live sources" citation group, alongside the existing chat/citation UI — see [../architecture/LIVE_EMAIL_LOOKUP.md](../architecture/LIVE_EMAIL_LOOKUP.md) §2/§6. Not implemented.
