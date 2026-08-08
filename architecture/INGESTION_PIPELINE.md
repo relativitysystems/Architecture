@@ -46,10 +46,10 @@ sequenceDiagram
     Inn->>Store: download file (30s timeout)
     Inn->>Inn: parseDocument() (60s timeout)
     Inn->>Inn: SHA-256 hash parsed text
-    alt unchanged hash or duplicate content elsewhere, not forceReindex
+    alt unchanged hash (existing document still indexed, with real chunks) or duplicate content elsewhere, not forceReindex
         Inn->>DB: mark job completed, point at existing document (skip below)
-    else new or forced
-        Inn->>DB: upsert knowledge_documents (status=indexing, collection assigned if first insert)
+    else new, forced, or existing document not actually indexed/has no chunks
+        Inn->>DB: upsert knowledge_documents (status=indexing, collection_id always resolved: explicit -> existing row's own -> default on true first insert)
         Inn->>DB: delete old chunks for this document (15s timeout)
         Inn->>Inn: chunkText() per PDF page or whole document
         Inn->>OAI: generateEmbeddings() batched 100/call (60s/batch, 90s outer)
@@ -115,9 +115,10 @@ A generic-MIME-to-extension fallback maps ambiguous MIME types (e.g. from Google
 
 Detected inside the `index-document-core` step:
 
-1. **Unchanged-hash skip**: if a document already exists for `(clientId, sourceProvider, sourceFileId)` and the freshly-parsed text's SHA-256 hash matches the stored `content_hash`, and `forceReindex` is not set, the entire chunk/embed/insert sequence is skipped — the job completes pointing at the existing document.
+1. **Unchanged-hash skip**: if a document already exists for `(clientId, sourceProvider, sourceFileId)` and the freshly-parsed text's SHA-256 hash matches the stored `content_hash`, and `forceReindex` is not set, the entire chunk/embed/insert sequence is skipped — the job completes pointing at the existing document. **(EM10.5 Bug #7)** a hash match alone is not sufficient: the skip also requires the existing document to be `status: 'indexed'` with at least one real chunk (`services/ingestDedup.js#canSkipUnchangedHash`, backed by `getChunkCountForDocument`) — otherwise (e.g. a soft-deleted document whose `content_hash` survived deletion) it re-indexes instead of being wrongly skipped. `markDocumentDeleted` also clears `content_hash` as defense in depth.
 2. **Cross-file duplicate-content skip**: if not `forceReindex`, AIKB additionally checks whether *any other* already-indexed document for the same client has the same content hash; if so, ingestion is skipped and the job points at that other document instead.
 3. **Forced reindex** (`forceReindex: true`, only set by the reindex Inngest event) bypasses both checks, always deleting old chunks and re-chunking/re-embedding/re-inserting.
+4. **Collection assignment on upsert (EM10.5 Bug #9)**: `collection_id` is always resolved before the upsert, via `services/collectionResolution.js#resolveDocumentCollectionId` — an explicit caller-supplied `collectionId` always wins; otherwise an existing document row's own `collection_id` is preserved (including a soft-deleted row's, since delete never clears it); otherwise, only on a true first insert, the client's default collection is used. An existing row with neither an explicit value nor its own `collection_id` fails with a clear application error rather than a raw DB NOT NULL constraint violation (Postgres's `INSERT ... ON CONFLICT DO UPDATE` validates NOT NULL constraints against the candidate row before resolving the conflict, so omitting `collection_id` on a re-ingest failed even though the UPDATE branch that actually ran never touched that column).
 
 Re-uploading identical content is therefore cheap: no OpenAI calls and no chunk writes occur on a hash match.
 
