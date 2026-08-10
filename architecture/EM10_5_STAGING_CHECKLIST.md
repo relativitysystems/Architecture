@@ -2,6 +2,8 @@
 
 Working document for [EMAIL_INGESTION.md](EMAIL_INGESTION.md) §31's EM10.5 milestone. This is a **fill-in-the-blanks execution record**, not a design document — the design/rationale for why this milestone exists lives in EMAIL_INGESTION.md; this file exists to record what actually happened when someone ran it against real accounts.
 
+**Companion document: [EM10_5_SLACK_VALIDATION.md](EM10_5_SLACK_VALIDATION.md).** This file answers *"did Gmail ingestion work correctly?"* and owns every backend assertion about whether a document and its chunks exist. The companion answers *"can Slack correctly retrieve and present the knowledge that ingestion produced?"* — it is a second execution record under the same milestone, not a new one, and it defers to this file for all ingestion-side proof. Scenarios 3, 4, 5, 8, and 9 here each have a Slack-side verification counterpart there (B7, B8, B9); the counterparts are gated on this file's scenarios completing first.
+
 **Status: Not started.** No prerequisite infrastructure exists yet (verified 2026-07-25 — `GMAIL_CLIENT_ID`/`GMAIL_CLIENT_SECRET`/`GMAIL_REDIRECT_URI` are all unset in `Relativity/.env`, no Google Cloud OAuth Client is configured, no staging deployment URL exists beyond `http://localhost:3000`). Both `Relativity` and `aikb` boot cleanly with no crash on missing Gmail config (verified 2026-07-25 — `node server.js` starts successfully in both repos with Gmail env vars empty; `GET /api/integrations/email/gmail/start` correctly returns `401` under `clientAuth`, not a crash), so there is no code-side blocker — only credentials and test accounts are missing.
 
 ---

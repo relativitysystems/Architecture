@@ -88,6 +88,8 @@ Only technical metadata needed for Slack event deduplication, basic debugging, d
 6. Confirm `GET /api/integrations/slack/sweep` returns `404` (route removed) and no cron/scheduled job exists anywhere in either deployment (Vercel, Railway/Inngest) that calls it.
 7. After any test run, reconnect/verify the Slack workspace connection still works for a fresh question — bounded-retry testing should never leave the connection in a broken state.
 
+**Full real-account QA of the Slack surface**: the checklist above verifies delivery mechanics in isolation. [EM10_5_SLACK_VALIDATION.md](EM10_5_SLACK_VALIDATION.md) is the hands-on execution record for Slack as a **knowledge-search surface** end to end — collection access (`slack_collection_access` fail-closed), portal-vs-Slack retrieval parity, citation integrity, tenant isolation, channel-vs-DM behavior, thread placement, and the async delivery/idempotency paths above re-verified against a real workspace. It is a companion to [EM10_5_STAGING_CHECKLIST.md](EM10_5_STAGING_CHECKLIST.md) under the same milestone, not a separate one.
+
 ## Architecture — The Reusable Connector Pattern
 
 The following pattern is observed directly in the Slack implementation and is the shape a future **ingestion-based** connector (Gmail, Outlook, Teams) should follow — a **live-query** connector (CRM) follows [ADR-010](../decisions/ADR-010-LIVE-TOOL-CALLS-ORCHESTRATED-BY-AIKB.md) instead, skipping steps 4–5 entirely. It is *not* a formal framework/interface enforced by the codebase today — Google Drive's one-shot Picker import predates it and was never retrofitted onto it (nor does it need to be — it isn't an ongoing connection) — but it is the consistent shape of every Milestone-4/5-era service.

@@ -29,11 +29,12 @@ Architecture/
 │   ├── SERVICE_CONTRACTS.md           — the Relativity ↔ AIKB request/response contracts
 │   ├── SECURITY.md                    — auth, tenant isolation, secrets, current risks
 │   ├── EMAIL_INGESTION.md             — proposed: client-connected Gmail/Outlook ingestion (design, not implemented)
-│   ├── EM10_5_STAGING_CHECKLIST.md    — Gmail real-account staging validation: fill-in-the-blanks execution record
+│   ├── EM10_5_STAGING_CHECKLIST.md    — Gmail real-account staging validation: fill-in-the-blanks execution record ("did Gmail ingestion work?")
+│   ├── EM10_5_SLACK_VALIDATION.md     — companion execution record under the same milestone: Slack as a surface over already-ingested Gmail knowledge ("can Slack retrieve and present it?")
 │   ├── LIVE_EMAIL_LOOKUP.md           — read-only, AIKB-orchestrated live mailbox lookup as an AI agent tool (ADR-010 shape), alongside — not replacing — EMAIL_INGESTION.md. Version 1 Priority 1. EL1–EL9 substantially implemented (tool registry, execution endpoint, real Gmail tools, bounded AIKB orchestration, portal mode selector/consent/live citations, Slack identity linking + live-email access, citation-security tests, audit trail + per-connection rate budget); EL10+ (real-account validation, EM10.5) not yet.
 │   ├── STAGING_ENVIRONMENT.md         — plan for a dedicated staging environment (Supabase x2, Slack app, deployments); no cloud resources created yet
 │   ├── PRODUCT_MATURITY.md            — single source of truth: product maturity stages (Prototype → Beta → Version 1 → Expansion → Company Operating Memory)
-│   └── QUALITY_ASSURANCE.md           — (stub — no content yet; comprehensive QA plan to be added)
+│   └── QUALITY_ASSURANCE.md           — QA index: the execution records that exist, and the standing rules they share (comprehensive repo-wide QA plan still to be added)
 ├── product/
 │   ├── CLIENT_PORTAL.md               — portal UX and feature surface
 │   ├── CLIENT_ONBOARDING.md           — account provisioning and initial data migration
@@ -94,7 +95,7 @@ Architecture/
 ## Current Limitations
 
 - `vision/` and `ideas/` remain empty stubs — no company-level (non-codebase) source material has been in scope to populate them from.
-- `architecture/QUALITY_ASSURANCE.md` is an empty stub — a comprehensive, repo-wide QA plan (test environments, regression policy, use-case libraries per feature, etc.) is intended for it but not yet written.
+- `architecture/QUALITY_ASSURANCE.md` is an index of the QA execution records that exist today, not the comprehensive repo-wide QA plan (test environments, regression policy, use-case libraries per feature, etc.) still intended for it.
 - Documentation here reflects a point-in-time review of both source repositories, most recently updated through the [ADR-008](decisions/ADR-008-CLIENT-AIKB-DATABASE-ROUTING.md) client-aware AIKB database-routing implementation (superseding the earlier ADR-007/Milestone 4 snapshot). ADR-008's shared-routing phase is implemented and verified against AIKB (`aikb/services/aikbDatabaseProvider.js`); dedicated per-client databases described in its "Future Control-Plane Model" and "Migration Strategy" sections remain **proposed only** and must not be treated as implemented. Neither repository is version-pinned against this documentation set, so drift is possible, especially in the connector and security areas, which change most frequently.
 - There is no automated check tying this repository's claims back to the source repositories — accuracy currently depends on manual review at documentation-update time.
 
