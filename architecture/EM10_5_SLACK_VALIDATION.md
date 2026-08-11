@@ -83,13 +83,34 @@ For any Part B scenario run over DM, or any result you doubt, capture at least t
 
 Everything in Part A is account/credential/configuration setup. No code changes are in scope.
 
+## Part A execution record — 2026-08-09
+
+**Result: FAIL at A.6. Part B is blocked and must not be started.**
+
+Verified by direct inspection of both production Supabase projects, the two repositories' source, and `Relativity/.env`. Not verified from the Slack admin UI (no access from the execution environment) — where a Slack-side fact was needed, live database evidence was used instead and is noted as such.
+
+| Item | Result | Summary |
+|---|---|---|
+| A.1 Environment declaration | ☐ **Open — needs sign-off** | Everything below points at **production**. No staging exists. See A.1. |
+| A.2 Slack app | ⚠ **Pass with a blocking caveat** | Live install has every needed scope, but the code's reconnect path would downgrade it — Bug 1. |
+| A.3 Workspace and users | ⚠ **Partial — needs confirmation** | Workspace `T0B7BDF7J3E` connected. Both "member" mailboxes belong to one person. |
+| A.4 Environment configuration | ☑ **Pass** | All values present and consistent; recorded in A.4. |
+| A.5 Test client and known content | ⚠ **Pass with two divergences** | All 3 Gmail docs indexed with 1 chunk each, but state contradicts EM10.5's record — Bugs 2 and 3. |
+| A.6 Slack collection access | ☒ **FAIL** | Slack's allow-list contains a collection holding **zero** documents. Slack can currently search **nothing** — Bug 4. |
+| A.7 Baseline sanity check | ⛔ **Blocked by A.6** | Would fail for a configuration reason. Must be run by hand once A.6 is fixed. |
+
+**The single blocking issue**: this client's Slack allow-list permits collection `3b15ddc1` ("Slack"), which contains 0 indexed documents. All 10 of the client's indexed documents — including all 3 Gmail test documents — are in `c033f615` ("General"), which is **not** allow-listed. Per `aikbAskClient.js`'s fail-closed contract this is correct, intended behavior, not a defect in retrieval; it simply means every Part B scenario would return a knowledge gap for a configuration reason. This is precisely the false-failure mode A.6 exists to catch, and it was caught before a single content scenario ran.
+
+---
+
 ### A.1 Environment declaration (do this first, in writing)
 
 EM10.5's own Part 0.3 required a staging Supabase project, and its Scenario 1 records that it ran against production anyway. Do not repeat that silently.
 
-- [ ] Environment used for this pass: ______________________
-- [ ] Supabase projects (Relativity / AIKB) in use: ______________________
-- [ ] Slack workspace in use: ______________________
+- [ ] Environment used for this pass: **Production.** No staging environment exists ([STAGING_ENVIRONMENT.md](STAGING_ENVIRONMENT.md) — no cloud resources created). Evidence: `SLACK_REDIRECT_URI = https://relativitysystems.ai/api/integrations/slack/callback`; `AIKB_API_BASE_URL = https://aiknowledgebaseinngest-production.up.railway.app`.
+- [ ] Supabase projects (Relativity / AIKB) in use: **both production.** Verified 2026-08-09 by direct query.
+- [ ] Slack workspace in use: **`T0B7BDF7J3E`**, connected 2026-07-16 to client `72e78cfe-218d-4927-8e26-a392e43846f4` ("Relativity Systems"), `status = active`, never revoked.
+- [ ] Client under test: **`72e78cfe-218d-4927-8e26-a392e43846f4` — "Relativity Systems", `is_active = true`.** This is the company's own live client record, not a synthetic test tenant. Three other real clients exist in the same database (Scribed.ai, Dawna, tat) and are **not** in scope; B6 can use one of them as out-of-scope content.
 
 **Destructive scenarios in this document — B5 (collection allow-list removal), B7 (label removal), B8 (policy change), B9 (member disable, disconnect with cleanup) — must either run against a non-production test client/environment, or be explicitly acknowledged below as running against production data that is understood to be isolated test data.**
 
@@ -98,40 +119,46 @@ EM10.5's own Part 0.3 required a staging Supabase project, and its Scenario 1 re
 
 ### A.2 Slack app
 
-- [ ] A Slack app exists, installable to the test workspace, with an OAuth redirect URI matching `SLACK_REDIRECT_URI` byte-for-byte (Slack does exact-match, not prefix-match).
-- [ ] Bot token scopes cover at minimum `app_mentions:read`, `im:history`, `im:read`, `im:write`, `chat:write` — verify against `services/slackIntegrationService.js`'s actual requested scope string rather than trusting this list.
-- [ ] Event Subscriptions enabled; Request URL points at the deployed `POST /api/integrations/slack/events` and Slack's `url_verification` challenge passes (`handleUrlVerification`).
-- [ ] Subscribed bot events include `app_mention` and `message.im`.
-- [ ] Signing secret recorded and matching `SLACK_SIGNING_SECRET`.
+- [x] A Slack app exists and is installed — `oauth_connections` holds an `active`, never-revoked `slack` row for team `T0B7BDF7J3E`.
+- [x] **Bot token scopes on the live install are sufficient.** `scopes_granted` records all eleven of: `app_mentions:read`, `chat:write`, `im:history`, `im:read`, `im:write`, `channels:read`, `channels:history`, `groups:read`, `groups:history`, `users:read`, `users:read.email`. Every scope Part B, C, and D need is present **on the current token**.
+- [x] **Event Subscriptions are working** — proven by delivery, not by inspecting the Slack UI: `slack_event_log` holds 12 `app_mention` and 3 `message` events at terminal status `delivered`, most recently 2026-07-21. Both `app_mention` and `message.im` are therefore subscribed and reaching the deployed endpoint. One row remains stuck at `enqueued` from 2026-07-16, predating [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md)'s bounded-retry work; it is stale, not evidence of a current defect.
+- [x] Signing secret set and matching (`SLACK_SIGNING_SECRET`, 32 chars).
+- [ ] ⚠ **Do not disconnect and reconnect Slack during this pass — see Bug 1.** `services/slackService.js:17` requests only `REQUIRED_SCOPES = ['app_mentions:read', 'chat:write']`. The live token's broader grant predates that constant or came from the app's own manifest; a reconnect through the current code path would request two scopes and drop `im:history`/`im:read`/`im:write`, silently killing DM delivery and with it C1 identity linking, B3, and all of Part D.
 
 ### A.3 Test workspace and users
 
-- [ ] A real Slack workspace dedicated to this test.
-- [ ] Two real Slack users — **Slack User A** and **Slack User B** — corresponding to EM10.5's Member A and Member B.
-- [ ] At least one public channel the bot is a member of, plus DM access for both users.
+- [ ] ⚠ **Not dedicated** — `T0B7BDF7J3E` is the company's live workspace, not a throwaway. Combined with A.1's production finding, every destructive scenario needs the A.1 sign-off before it runs.
+- [ ] ⚠ **Two Slack users not yet confirmed.** The client has exactly two `client_members`, both `active` with `search_enabled = true`: owner `65900664-…` (mailbox `tenzin@relativitysystems.ai`) and member `4c8acdee-…` (mailbox `10zinsteel@gmail.com`). **Both mailboxes belong to the same person.** That is workable for retrieval and delivery scenarios, but it weakens B6 and D3 — a cross-member isolation result proved with two accounts owned by one operator is softer evidence than two genuinely separate users. Record which real Slack user ids will act as A and B: ______________________
+- [x] `slack_user_links` is **empty** — no Slack user is linked to any member yet. C1 has never been run. Consequences: Part D cannot run until C1 succeeds, and B3's DM leg will run unlinked (which is a *clean* stored-knowledge control, so run it that way first deliberately).
+- [ ] At least one public channel the bot is a member of, plus DM access for both users — the 12 delivered `app_mention` events prove a channel existed as of 2026-07-20; confirm it still does.
 
 ### A.4 Environment configuration
 
-- [ ] `Relativity/.env`: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`, `SLACK_REDIRECT_URI`, `SLACK_TOKEN_ENCRYPTION_KEY` all set. *(All five verified non-empty 2026-08-09; confirm they point at the intended app, not a stale one.)*
-- [ ] `SLACK_QUESTION_MAX_LENGTH` value recorded — C6 needs it: ______
-- [ ] `SLACK_DELIVERY_MAX_ATTEMPTS` / `SLACK_DELIVERY_BACKOFF_MS` recorded — C5 asserts against them ([ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md); default 3 attempts): ______
-- [ ] `SERVICE_REQUEST_SIGNING_SECRET` matches between `Relativity` and `aikb` — the `/deliver` callback is a signed service request and fails without it ([ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md)).
-- [ ] Both `node server.js` processes (Relativity, aikb) start cleanly.
+**Verified 2026-08-09 — A.4 passes.**
+
+- [x] `Relativity/.env`: `SLACK_CLIENT_ID` (29 ch), `SLACK_CLIENT_SECRET` (32 ch), `SLACK_SIGNING_SECRET` (32 ch), `SLACK_TOKEN_ENCRYPTION_KEY` (64 ch) all set; `SLACK_REDIRECT_URI = https://relativitysystems.ai/api/integrations/slack/callback`. The redirect URI's host matches the workspace that has been delivering events, so the app is the live one, not a stale entry.
+- [x] `SLACK_QUESTION_MAX_LENGTH` = **2000** (explicitly set; matches `config/index.js`'s own default). C6(c) needs a question longer than 2000 characters.
+- [x] `SLACK_DELIVERY_MAX_ATTEMPTS` / `SLACK_DELIVERY_BACKOFF_MS` are **both unset**, so `config/index.js:167` defaults apply: **3 total attempts, backoff `2000,5000` ms**. C5 asserts against these values.
+- [x] `SERVICE_REQUEST_SIGNING_SECRET` — **matches** byte-for-byte between `Relativity/.env` and `aikb/.env` (64 chars each). The `/deliver` callback will verify ([ADR-004](../decisions/ADR-004-SIGNED-SERVICE-REQUESTS.md)).
+- [x] `AIKB_API_BASE_URL = https://aiknowledgebaseinngest-production.up.railway.app` (the config key is `AIKB_API_BASE_URL`, not `AIKB_BASE_URL`).
+- [ ] Both `node server.js` processes start cleanly — **not re-checked in this pass**; the deployed services are what Slack actually talks to, and their liveness is better evidenced by A.2's delivered events than by a local boot.
 
 ### A.5 Test client, members, and known Gmail content
 
-- [ ] The same test client and Member A / Member B rows from EM10.5 are reused — Slack live lookup depends on real `email_connections`, and reuse avoids provisioning a second Gmail OAuth Client (the same reasoning EL10 gives).
-- [ ] The Slack workspace is connected to this client via the portal's Slack panel (`GET /api/integrations/slack/start`, owner/admin only); `GET /status` reports an active connection.
-- [ ] **EM10.5's known-good Gmail documents are confirmed indexed and answerable in the portal before Slack is tested at all.** These are the fixed reference set for Part B:
+- [x] Same client and members as EM10.5 (client `72e78cfe-…`; members `65900664-…` owner and `4c8acdee-…`).
+- [x] The Slack workspace is connected to this client — `oauth_connections` row `c112faea-…`, `status = active`.
+- [x] **All three Gmail documents are indexed with real chunks** (AIKB, verified 2026-08-09):
 
-| Document | Reference question | Known-good answer (per EM10.5) | Indexed? |
-|---|---|---|---|
-| `Project Phoenix Onboarding SOP` | What are the Project Phoenix onboarding steps? | (onboarding steps) | ☐ |
-| `Weekly Sales Meeting Agenda` | When is the weekly sales meeting? | Thursday 9:00 AM | ☐ |
-| `Customer Refund Policy` | What is the refund policy? | 30 days | ☐ |
+| Document | AIKB document id | Status | Chunks | Collection | `updated_at` |
+|---|---|---|---|---|---|
+| `Project Phoenix Onboarding SOP.txt` | `02f6506c-…` | `indexed` | 1 | `c033f615` General | 2026-08-08 15:03:04 |
+| `Customer Refund Policy.txt` | `eef87a0b-…` | `indexed` | 1 | `c033f615` General | 2026-08-08 15:03:04 |
+| `Weekly Sales Meeting Agenda.txt` | `83039afe-…` | `indexed` | 1 | `c033f615` General | **2026-08-08 15:20:30** |
 
-- [ ] Current Gmail label state for each of the three, recorded: ______________________
-  *(EM10.5's final 2026-08-08 retest left the managed label on Project Phoenix and Customer Refund Policy, and removed from Weekly Sales Meeting Agenda. B7 depends on knowing the actual starting state.)*
+  Reference questions for Part B, with EM10.5's known-good answers: Project Phoenix onboarding steps; weekly sales meeting → **Thursday 9:00 AM**; refund policy → **30 days**.
+
+- [ ] ⚠ **Divergence 1 — `Weekly Sales Meeting Agenda` is live when EM10.5 says it should not be (Bug 2).** EM10.5's final 2026-08-08 retest records the managed label removed from this message and the Full Scan correctly *not* re-importing it. The document is nevertheless `indexed` with 1 chunk, `updated_at` **17 minutes after** the other two documents' 15:03:04 import. Something re-indexed it at 15:20:30 that EM10.5's record does not account for. **B7 depends on a known starting label state and cannot be trusted until this is reconciled.** Confirm the actual current Gmail label state by hand before running B7: ______________________
+- [ ] ⚠ **Divergence 2 — nine active `email_connections` rows for two mailboxes (Bug 3).** Owner `65900664-…` has **6** rows for `tenzin@relativitysystems.ai`; member `4c8acdee-…` has **3** for `10zinsteel@gmail.com`. Every one has `sync_enabled = true`. Two of the member's three have `managed_label_id = null`. B9 (and EM10.5's own Scenarios 5, 8, 9) assume one connection per member — a disable or disconnect exercised against one row may leave five others syncing, which would read as a correctness failure when it is really connection-row duplication.
 
 ### A.6 Slack collection access — the fail-closed prerequisite
 
@@ -141,9 +168,21 @@ EM10.5's own Part 0.3 required a staging Supabase project, and its Scenario 1 re
 
 **`allowedCollectionIds = []` means Slack searches nothing.** If the collection holding the Gmail documents is not allow-listed, every scenario in Part B returns a knowledge gap and will look like an ingestion or RAG failure when it is purely a configuration state. This is [ADR-005](../decisions/ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md) working as designed.
 
-- [ ] AIKB collection id holding the Gmail test documents identified: ______________________
-- [ ] That id is present in `slack_collection_access` for this client (portal `PUT /api/integrations/slack/collections`, owner/admin only).
-- [ ] The full current allow-list is recorded here, so B5 can restore it exactly: ______________________
+### ☒ A.6 FAILED — verified 2026-08-09
+
+- [x] AIKB collection id holding the Gmail test documents: **`c033f615-57ea-42a0-956a-3d9ba5875bf5`** — named "General", `is_default = true`, client `72e78cfe-…`.
+- [x] The full current Slack allow-list, recorded so B5 can restore it exactly: **exactly one row — `3b15ddc1-5453-438d-a342-f9296924e66c`**, named "Slack", `is_default = false`.
+- [x] ☒ **The Gmail collection is NOT allow-listed.** `c033f615` ≠ `3b15ddc1`.
+
+**Scope of the failure is wider than Gmail.** Every one of this client's **10** indexed documents — 3 Gmail plus 7 `portal_upload` — lives in `c033f615`. The allow-listed `3b15ddc1` holds **zero** indexed documents.
+
+> **Slack can currently retrieve nothing at all for this client.** Not "no Gmail content" — no content.
+
+This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md) and `aikbAskClient.js` specify. It is a **configuration state, not a defect** in retrieval, ingestion, or RAG. It is logged as Bug 4 to track the fix, not to attribute blame to code.
+
+**Consequence**: A.7 would fail, and every Part B scenario would return a knowledge gap for a reason that has nothing to do with what they are testing. Had A.6 not been run first, B1 through B4 would have produced four convincing, entirely false ingestion failures.
+
+**Fix required before proceeding** (owner/admin, portal Slack panel → `PUT /api/integrations/slack/collections`): add `c033f615-57ea-42a0-956a-3d9ba5875bf5` to the allow-list. Whether `3b15ddc1` stays alongside it is a product decision — see E.2. Re-run A.7 immediately after.
 
 ### A.7 Baseline sanity check — **gate: do not start Part B until this passes**
 
@@ -152,9 +191,9 @@ EM10.5's own Part 0.3 required a staging Supabase project, and its Scenario 1 re
 **Expected**: Slack returns the known correct answer, with a `Sources:` block naming that document.
 **Evidence to capture**: the answer text, the sources block, and the round-trip latency.
 **Why this gate exists**: it proves the entire Slack → AIKB → retrieval → delivery path is live and the allow-list is non-empty, *before* any Gmail-specific result becomes ambiguous. A knowledge gap in B1 is unattributable without it.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**Notes**:
-**Bugs found** (#):
+**Result**: ⛔ **Not run — blocked by A.6.** The allow-listed collection holds zero documents, so this check would fail for a configuration reason and prove nothing about the path. It requires a human in Slack and cannot be executed from a development environment.
+**Notes**: run this by hand immediately after Bug 4's allow-list fix, using one of the 7 `portal_upload` documents in `c033f615` (a non-Gmail document, per the scenario's own requirement). Only then start Part B.
+**Bugs found** (#): blocked by 4
 
 ---
 
@@ -444,7 +483,10 @@ Slack-specific mechanics with no portal analog. Keep these separate from Part B:
 
 | # | Scenario | Description | Severity | Status |
 |---|----------|-------------|----------|--------|
-|   |          |             |          |        |
+| 1 | A.2 | **Slack reconnect would downgrade scopes and silently break DMs.** `services/slackService.js:17` sets `REQUIRED_SCOPES = ['app_mentions:read', 'chat:write']` and `:51` sends exactly that as the OAuth `scope` parameter. The live token (`oauth_connections.scopes_granted`, granted 2026-07-16) carries eleven scopes including `im:history`, `im:read`, and `im:write` — so the working install predates this constant or was granted from the app manifest. Any disconnect/reconnect through the current code path requests two scopes, and Slack issues a token with two. DM events would stop arriving, which silently disables EL7A identity linking (`link CODE` is DM-only), B3's DM leg, and all of Part D. Nothing in the code detects or warns about the downgrade. | **High** — latent; no impact until someone reconnects, total DM loss the moment they do | **Open.** Slack-surface. Workaround for this pass: do not reconnect. Fix: `REQUIRED_SCOPES` must include `im:history`, `im:read`, `im:write` to match what the feature set actually needs. |
+| 2 | A.5 | **`Weekly Sales Meeting Agenda` is indexed and searchable, contradicting EM10.5's own closing record.** EM10.5 Scenario 3's final 2026-08-08 retest states the managed label was removed from this message and the Full Scan "correctly not re-imported" it. AIKB shows document `83039afe-…` at `status = indexed` with 1 chunk, `updated_at` 2026-08-08 15:20:30 — 17 minutes *after* the two documents that scan did import (15:03:04). Some event re-indexed it that EM10.5's record does not describe. Either the label was re-applied out of band, or a tombstone did not hold. | **Medium** — invalidates B7's starting state; possible unclosed edge of Bugs 4/5/7 in EM10.5 | **Open.** Backend/ingestion — belongs against EM10.5, not this document. Reconcile the actual Gmail label state before running B7. |
+| 3 | A.5 | **Nine `sync_enabled` `email_connections` rows for two distinct mailboxes.** Owner `65900664-…` has 6 rows for `tenzin@relativitysystems.ai` (created 2026-07-27 through 2026-08-08); member `4c8acdee-…` has 3 for `10zinsteel@gmail.com`. All nine are `sync_enabled = true`. Two of the member's three have `managed_label_id = null`, so those connections never created or reused a managed label. EM1 added provider-partitioned partial unique indexes to `oauth_connections`, but `email_connections` appears to have no equivalent one-active-per-member-per-mailbox constraint, so each reconnect accreted a row instead of replacing one. | **Medium** — duplicate syncing today; makes B9 and EM10.5's Scenarios 5/8/9 unreliable, since disabling or disconnecting one row may leave five syncing | **Open.** Backend/ingestion — belongs against EM10.5/EM9. |
+| 4 | A.6 | **Slack's collection allow-list grants a collection that holds no documents, so Slack can retrieve nothing for this client.** `slack_collection_access` has exactly one row for client `72e78cfe-…`: collection `3b15ddc1` ("Slack"), which contains 0 indexed documents. All 10 of the client's indexed documents — 3 `gmail`, 7 `portal_upload` — are in `c033f615` ("General", default), which is not allow-listed. `aikbAskClient.js` passes the allow-list through explicitly and an empty-of-content grant retrieves nothing, per [ADR-005](../decisions/ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md). **This is fail-closed behavior working correctly, not a code defect** — logged to track the configuration fix and because it fully blocks A.7 and Part B. | **High** — blocks the entire validation; in production, means the Slack bot answers nothing for this client today | **Open.** Configuration. Fix: add `c033f615-57ea-42a0-956a-3d9ba5875bf5` via the portal's Slack panel, then re-run A.7. |
 
 When logging, state whether the defect is **Slack-surface** (event handling, formatting, delivery, collection resolution) or **backend/ingestion** (retrieval, indexing, tool orchestration). A backend defect found here belongs against EM10.5 or the relevant EL milestone, not against this document.
 
@@ -456,7 +498,11 @@ Anything [EMAIL_INGESTION.md](EMAIL_INGESTION.md), [LIVE_EMAIL_LOOKUP.md](LIVE_E
 
 - **Slack citations carry no "Open in Gmail" deep link.** EM10.5's Scenario 2 acceptance language is portal-specific; `slackAnswerFormatter.js` deliberately emits titles only. Whether this is a documentation gap (the criterion should be scoped to the portal) or a product gap (Slack should carry deep links) is a decision for this pass to record — **not** a reason to fail a Gmail ingestion scenario.
 
--
+**Raised by Part A, 2026-08-09:**
+
+- **Should Gmail-ingested mail land in the default "General" collection at all?** Every collection allow-listed for Slack is named "Slack"; every document, including Gmail's, lands in "General". Two collections named this way imply an intended split — Slack-visible vs. everything — that nothing in the ingestion path enforces, and `resolveDocumentCollectionId` sends a first-insert to the client's *default* collection with no notion of Slack visibility. Either the naming is vestigial and the allow-list should simply name the collections that hold real content, or ingestion should route by intended audience. Decide which; today's state gives a Slack bot that answers nothing, with no error anywhere to explain why.
+- **Should a client with an allow-list that grants zero indexed documents be surfaced anywhere?** Bug 4 was invisible from every UI — the portal shows an allow-list, `slack_collection_access` shows a row, and the bot silently gaps on every question. `CONNECTOR_FRAMEWORK.md`'s Slack verification checklist would not catch it either. A "this allow-list grants no content" warning in the portal's Slack panel would have prevented it.
+- **Should `REQUIRED_SCOPES` be derived from the feature set rather than hardcoded?** Bug 1 exists because the constant lists two scopes while the product needs at least five. Any future scope-dependent feature repeats the failure.
 
 ## E.3 Readiness decision — Slack as a knowledge-search surface
 
