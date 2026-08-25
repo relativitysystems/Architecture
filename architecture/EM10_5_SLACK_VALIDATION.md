@@ -11,7 +11,7 @@ The division of labour is exact:
 
 This document does **not** own Gmail ingestion. Where a scenario needs indexed content to change (a label removed, a policy edited, a member disconnected), the change is made through the portal/Gmail exactly as EM10.5 already specifies, EM10.5 proves the document and chunk state actually changed, and this document only asks: **does Slack now behave accordingly?** Backend assertions are not duplicated here unless they are needed to diagnose a Slack-side failure.
 
-**Status: Not started.**
+**Status: In progress — Part A complete, Part B started (B5 run early, out of order, alongside the A.6 fix). B1–B4, B6–B9, Parts C and D not yet run.**
 
 ---
 
@@ -85,7 +85,9 @@ Everything in Part A is account/credential/configuration setup. No code changes 
 
 ## Part A execution record — 2026-08-09
 
-**Result: FAIL at A.6. Part B is blocked and must not be started.**
+**Original result: FAIL at A.6. Part B was blocked and must not be started.**
+
+**Update — 2026-08-24: A.6 fixed, A.7 passed. Part B is unblocked.** See the A.6/A.7 sections below for detail.
 
 Verified by direct inspection of both production Supabase projects, the two repositories' source, and `Relativity/.env`. Not verified from the Slack admin UI (no access from the execution environment) — where a Slack-side fact was needed, live database evidence was used instead and is noted as such.
 
@@ -96,10 +98,12 @@ Verified by direct inspection of both production Supabase projects, the two repo
 | A.3 Workspace and users | ⚠ **Partial — needs confirmation** | Workspace `T0B7BDF7J3E` connected. Both "member" mailboxes belong to one person. |
 | A.4 Environment configuration | ☑ **Pass** | All values present and consistent; recorded in A.4. |
 | A.5 Test client and known content | ⚠ **Pass with two divergences** | All 3 Gmail docs indexed with 1 chunk each, but state contradicts EM10.5's record — Bugs 2 and 3. |
-| A.6 Slack collection access | ☒ **FAIL** | Slack's allow-list contains a collection holding **zero** documents. Slack can currently search **nothing** — Bug 4. |
-| A.7 Baseline sanity check | ⛔ **Blocked by A.6** | Would fail for a configuration reason. Must be run by hand once A.6 is fixed. |
+| A.6 Slack collection access | ☑ **Fixed — 2026-08-24** | `c033f615` ("General") added to the allow-list alongside `3b15ddc1` ("Slack"). Bug 4 closed. |
+| A.7 Baseline sanity check | ☑ **Pass — 2026-08-24** | `@mention`, question about a `portal_upload` document in General, answered correctly with a sources block. |
 
 **The single blocking issue**: this client's Slack allow-list permits collection `3b15ddc1` ("Slack"), which contains 0 indexed documents. All 10 of the client's indexed documents — including all 3 Gmail test documents — are in `c033f615` ("General"), which is **not** allow-listed. Per `aikbAskClient.js`'s fail-closed contract this is correct, intended behavior, not a defect in retrieval; it simply means every Part B scenario would return a knowledge gap for a configuration reason. This is precisely the false-failure mode A.6 exists to catch, and it was caught before a single content scenario ran.
+
+**Resolved — 2026-08-24.** `c033f615` was added to the allow-list (kept alongside `3b15ddc1`, not replacing it — see A.6's updated section below for the product-decision note this leaves open). A.7 was then run and passed. Part B is now unblocked.
 
 ---
 
@@ -184,6 +188,12 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 
 **Fix required before proceeding** (owner/admin, portal Slack panel → `PUT /api/integrations/slack/collections`): add `c033f615-57ea-42a0-956a-3d9ba5875bf5` to the allow-list. Whether `3b15ddc1` stays alongside it is a product decision — see E.2. Re-run A.7 immediately after.
 
+### ☑ A.6 FIXED — 2026-08-24
+
+- [x] `c033f615-57ea-42a0-956a-3d9ba5875bf5` ("General") added to the allow-list via the portal's Slack panel.
+- [x] **Product decision (see E.2's open candidate): both collections are kept allow-listed** — `3b15ddc1` ("Slack") remains alongside `c033f615` ("General"), rather than General replacing it. `3b15ddc1` still holds 0 documents as of this update, so it currently contributes nothing to retrieval either way; it was left in place rather than removed. The underlying naming-split question E.2 raises (should Gmail-ingested mail route to a Slack-specific collection instead of the client default?) is **still open** — this fix unblocks validation, it does not resolve that product question.
+- [x] Verified via the fail-closed round-trip below (logged formally as B5, run here alongside the fix): removing General from the allow-list produced a clean knowledge gap; re-adding it restored the correct answer. This is direct proof the allow-list gate itself works, not just that content exists.
+
 ### A.7 Baseline sanity check — **gate: do not start Part B until this passes**
 
 **Setup**: A.1–A.6 complete.
@@ -191,9 +201,9 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 **Expected**: Slack returns the known correct answer, with a `Sources:` block naming that document.
 **Evidence to capture**: the answer text, the sources block, and the round-trip latency.
 **Why this gate exists**: it proves the entire Slack → AIKB → retrieval → delivery path is live and the allow-list is non-empty, *before* any Gmail-specific result becomes ambiguous. A knowledge gap in B1 is unattributable without it.
-**Result**: ⛔ **Not run — blocked by A.6.** The allow-listed collection holds zero documents, so this check would fail for a configuration reason and prove nothing about the path. It requires a human in Slack and cannot be executed from a development environment.
-**Notes**: run this by hand immediately after Bug 4's allow-list fix, using one of the 7 `portal_upload` documents in `c033f615` (a non-Gmail document, per the scenario's own requirement). Only then start Part B.
-**Bugs found** (#): blocked by 4
+**Result**: ☑ **Pass — 2026-08-24.** Run by hand after Bug 4's allow-list fix, using one of the `portal_upload` documents in `c033f615` (a non-Gmail document, per the scenario's own requirement). The bot returned the correct answer with a `Sources:` block naming that document. Exact question/answer/sources text and round-trip latency were not captured verbatim for this record.
+**Notes**: this passing means the entire Slack → AIKB → retrieval → delivery path is confirmed live and the allow-list is non-empty. Part B is unblocked as of this result.
+**Bugs found** (#): none — closes out Bug 4
 
 ---
 
@@ -278,9 +288,9 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 
 **Expected**: at step 3, Slack returns a clean knowledge gap ("I couldn't find that information in your organization's knowledge base.") — **not** an error, **not** an unrestricted search, and with no leaked content, title, or metadata from the excluded collection. At step 5 the original answer returns.
 **Evidence to capture**: the step-3 message verbatim; confirmation the portal still answered at step 1; the restored allow-list at step 5.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**Notes**:
-**Bugs found** (#):
+**Result**: ☑ **Pass — 2026-08-24.** Run out of order, alongside the A.6/Bug 4 fix, rather than after B1 as this document's original sequencing intended — noted here as a process deviation, not a defect. Portal control (step 1) was confirmed answerable before the Slack-side removal. General was removed from the allow-list, the question returned a clean knowledge gap (no error, no leaked metadata), General was restored, and the same question then returned the correct answer.
+**Notes**: because this ran before B1, it used a `portal_upload` document (same one as A.7), not a confirmed Gmail document — the Gmail-specific instance of this same fail-closed behavior is still open to verify once B1 runs. Re-run B5 with a Gmail document if a Gmail-specific confirmation is wanted, though the mechanism (`slack_collection_access` gating by collection, not by source provider) is document-agnostic and already proven here.
+**Bugs found** (#): none
 
 ### B6 — Tenant isolation
 
@@ -486,7 +496,7 @@ Slack-specific mechanics with no portal analog. Keep these separate from Part B:
 | 1 | A.2 | **Slack reconnect would downgrade scopes and silently break DMs.** `services/slackService.js:17` sets `REQUIRED_SCOPES = ['app_mentions:read', 'chat:write']` and `:51` sends exactly that as the OAuth `scope` parameter. The live token (`oauth_connections.scopes_granted`, granted 2026-07-16) carries eleven scopes including `im:history`, `im:read`, and `im:write` — so the working install predates this constant or was granted from the app manifest. Any disconnect/reconnect through the current code path requests two scopes, and Slack issues a token with two. DM events would stop arriving, which silently disables EL7A identity linking (`link CODE` is DM-only), B3's DM leg, and all of Part D. Nothing in the code detects or warns about the downgrade. | **High** — latent; no impact until someone reconnects, total DM loss the moment they do | **Open.** Slack-surface. Workaround for this pass: do not reconnect. Fix: `REQUIRED_SCOPES` must include `im:history`, `im:read`, `im:write` to match what the feature set actually needs. |
 | 2 | A.5 | **`Weekly Sales Meeting Agenda` is indexed and searchable, contradicting EM10.5's own closing record.** EM10.5 Scenario 3's final 2026-08-08 retest states the managed label was removed from this message and the Full Scan "correctly not re-imported" it. AIKB shows document `83039afe-…` at `status = indexed` with 1 chunk, `updated_at` 2026-08-08 15:20:30 — 17 minutes *after* the two documents that scan did import (15:03:04). Some event re-indexed it that EM10.5's record does not describe. Either the label was re-applied out of band, or a tombstone did not hold. | **Medium** — invalidates B7's starting state; possible unclosed edge of Bugs 4/5/7 in EM10.5 | **Open.** Backend/ingestion — belongs against EM10.5, not this document. Reconcile the actual Gmail label state before running B7. |
 | 3 | A.5 | **Nine `sync_enabled` `email_connections` rows for two distinct mailboxes.** Owner `65900664-…` has 6 rows for `tenzin@relativitysystems.ai` (created 2026-07-27 through 2026-08-08); member `4c8acdee-…` has 3 for `10zinsteel@gmail.com`. All nine are `sync_enabled = true`. Two of the member's three have `managed_label_id = null`, so those connections never created or reused a managed label. EM1 added provider-partitioned partial unique indexes to `oauth_connections`, but `email_connections` appears to have no equivalent one-active-per-member-per-mailbox constraint, so each reconnect accreted a row instead of replacing one. | **Medium** — duplicate syncing today; makes B9 and EM10.5's Scenarios 5/8/9 unreliable, since disabling or disconnecting one row may leave five syncing | **Open.** Backend/ingestion — belongs against EM10.5/EM9. |
-| 4 | A.6 | **Slack's collection allow-list grants a collection that holds no documents, so Slack can retrieve nothing for this client.** `slack_collection_access` has exactly one row for client `72e78cfe-…`: collection `3b15ddc1` ("Slack"), which contains 0 indexed documents. All 10 of the client's indexed documents — 3 `gmail`, 7 `portal_upload` — are in `c033f615` ("General", default), which is not allow-listed. `aikbAskClient.js` passes the allow-list through explicitly and an empty-of-content grant retrieves nothing, per [ADR-005](../decisions/ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md). **This is fail-closed behavior working correctly, not a code defect** — logged to track the configuration fix and because it fully blocks A.7 and Part B. | **High** — blocks the entire validation; in production, means the Slack bot answers nothing for this client today | **Open.** Configuration. Fix: add `c033f615-57ea-42a0-956a-3d9ba5875bf5` via the portal's Slack panel, then re-run A.7. |
+| 4 | A.6 | **Slack's collection allow-list grants a collection that holds no documents, so Slack can retrieve nothing for this client.** `slack_collection_access` has exactly one row for client `72e78cfe-…`: collection `3b15ddc1` ("Slack"), which contains 0 indexed documents. All 10 of the client's indexed documents — 3 `gmail`, 7 `portal_upload` — are in `c033f615` ("General", default), which is not allow-listed. `aikbAskClient.js` passes the allow-list through explicitly and an empty-of-content grant retrieves nothing, per [ADR-005](../decisions/ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md). **This is fail-closed behavior working correctly, not a code defect** — logged to track the configuration fix and because it fully blocks A.7 and Part B. | **High** — blocks the entire validation; in production, means the Slack bot answers nothing for this client today | **Closed — 2026-08-24.** Configuration. Fix applied: `c033f615-57ea-42a0-956a-3d9ba5875bf5` added to the allow-list via the portal's Slack panel, alongside (not replacing) `3b15ddc1`. Verified via A.7 (pass) and B5's fail-closed round-trip (pass) — see both sections above. The naming-split product question (should Slack-visible content route to its own collection rather than the client default?) remains open, tracked in E.2, and is not part of what this bug closes. |
 
 When logging, state whether the defect is **Slack-surface** (event handling, formatting, delivery, collection resolution) or **backend/ingestion** (retrieval, indexing, tool orchestration). A backend defect found here belongs against EM10.5 or the relevant EL milestone, not against this document.
 
