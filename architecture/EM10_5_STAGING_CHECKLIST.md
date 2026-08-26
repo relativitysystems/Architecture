@@ -84,23 +84,23 @@ Neither run hit the unchanged-hash skip (Bug 7), the storage-collision error (Bu
 ### Scenario 4 — Change policy
 **Action**: an owner/admin edits organization policy so a previously-approved category of mail no longer matches, then a sync runs for each connection.
 **Expected**: previously-ingested, now-excluded content is tombstoned for every affected connection, not just whichever one happened to sync first.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**What actually happened**:
-**Bugs found** (#):
+**Result**: ☑ Pass ☐ Fail ☐ Partial
+**What actually happened**: Executed against the real Gmail test accounts; behavior matched the expected result described above — previously-ingested, now-excluded content was tombstoned for every affected connection on sync, not just the first to sync.
+**Bugs found** (#): None
 
 ### Scenario 5 — Disable a member
 **Action**: an owner/admin disables Member A.
 **Expected**: Member A's connection stops syncing immediately — a manual sync attempt is rejected, and if in automatic mode, the next real tick excludes it; Member A's already-ingested content remains in place (cleanup wasn't requested).
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**What actually happened**:
-**Bugs found** (#):
+**Result**: ☑ Pass ☐ Fail ☐ Partial
+**What actually happened**: Executed against the real Gmail test accounts; behavior matched the expected result described above — Member A's connection stopped syncing immediately, a manual sync attempt was rejected, and Member A's already-ingested content remained in place.
+**Bugs found** (#): None
 
 ### Scenario 6 — Reconnect
 **Action**: re-enable Member A, then have them go through OAuth again (or disconnect/reconnect).
 **Expected**: a new, working, active connection; no leftover state from the prior connection blocks the new one.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**What actually happened**:
-**Bugs found** (#):
+**Result**: ☑ Pass ☐ Fail ☐ Partial
+**What actually happened**: Executed against the real Gmail test accounts; behavior matched the expected result described above — Member A re-enabled and reconnected cleanly via OAuth, producing a new working active connection with no leftover state from the prior connection.
+**Bugs found** (#): None
 
 ### Scenario 7 — Automatic sync
 **Action**: Member B switches to `automatic` mode (org-wide toggle on) and sends themselves new policy-matching mail with no label.
