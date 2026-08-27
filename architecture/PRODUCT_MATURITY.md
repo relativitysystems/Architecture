@@ -49,7 +49,7 @@ Multiple real connectors and organizational structure on top of the Stage 1 core
 | Google Drive | Implemented — **one-shot Picker import only, not continuous sync** | [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md) |
 | Slack | Implemented — reference connector, bounded delivery retries, terminal `delivery_failed` state | [CONNECTOR_FRAMEWORK.md](CONNECTOR_FRAMEWORK.md), [ADR-007](../decisions/ADR-007-SLACK-BOUNDED-DELIVERY-RETRY.md) |
 | Knowledge collections | Implemented (see Stage 1) | — |
-| Automatic synchronization | **Implemented for Gmail only** (EM1–EM10, cron-tick scheduler per [ADR-009](../decisions/ADR-009-EMAIL-AUTOMATIC-SYNC-SYSTEM-CLOCK.md)); Slack and Drive remain one-shot/event-driven with no recurring sync — this gap is exactly what Stage 3's **Automatic Sync Polish** priority closes | [EMAIL_INGESTION.md](EMAIL_INGESTION.md), [CONNECTOR_ROADMAP.md](../roadmap/CONNECTOR_ROADMAP.md) |
+| Automatic synchronization | **Removed.** Was implemented for Gmail only (EM1–EM8, cron-tick scheduler per [ADR-009](../decisions/ADR-009-EMAIL-AUTOMATIC-SYNC-SYSTEM-CLOCK.md), now Superseded); discovered during EM10.5 staging to have never actually fired in production, and removed from V1 scope entirely 2026-08-26 (EM10.6) rather than fixed. Gmail ingestion is label-driven only now. No connector has a recurring-sync mechanism — this gap is what Stage 3's **Automatic Sync Polish** priority would need to close from scratch, not generalize from a proven Gmail pattern | [EMAIL_INGESTION.md](EMAIL_INGESTION.md), [CONNECTOR_ROADMAP.md](../roadmap/CONNECTOR_ROADMAP.md) |
 | Connector management | Implemented (Slack + Gmail connect/status/disconnect UI; Drive/Dropbox persistent-connection UI was built then removed as unused scaffolding — backlog M15) | [CLIENT_PORTAL.md](../product/CLIENT_PORTAL.md) |
 | Improved onboarding | **Partial** — an onboarding-progress checklist exists on the portal Overview tab; there is still no self-serve signup, no bulk/API-driven migration path, and no migration-specific progress UI | [CLIENT_ONBOARDING.md](../product/CLIENT_ONBOARDING.md) |
 
@@ -70,7 +70,7 @@ The durable-knowledge half of the product vision. Mostly complete; the one open 
 | Slack | Implemented (Stage 2) |
 | Collections | Implemented (Stage 1) |
 | Citations | Implemented (Stage 1) |
-| Automatic sync | Implemented for Gmail; **not yet for Slack/Drive** — closing this gap, and validating Gmail's automatic sync against a real account (EM10.5), is Version 1 Priority 4 |
+| Automatic sync | **Removed (EM10.6)** — was implemented for Gmail, never validated against a real account (EM10.5 discovered it had never fired in production), removed from V1 rather than fixed. No connector has it. Version 1 Priority 4 needs re-scoping — there's no longer a proven pattern to extend to Slack/Drive |
 
 ### Pillar 2: Intelligence
 

@@ -1,10 +1,12 @@
 # ADR-009: AIKB contributes a scheduling "clock" for email automatic sync, via a system-scoped signed envelope
 
 ## Status
-Implemented — 2026-07-25 (EM8, `EMAIL_INGESTION.md` §18.3, §31).
+**Superseded — 2026-08-26.** Implemented 2026-07-25 (EM8, `EMAIL_INGESTION.md` §18.3, §31); the mechanism this ADR records was removed in EM10.6 (`EMAIL_INGESTION.md`'s EM10.6 Implementation Record) — Automatic Email Ingestion is out of V1 scope, and Gmail ingestion is label-driven only now. EM10.5's staging pass discovered the cron tick this ADR describes had never actually fired in production (AIKB's Inngest app was never re-synced after `email-sync-tick` was added); rather than close that gap, the product decision was to remove the mode this mechanism served, not fix the mechanism itself.
+
+This document is retained as the historical record of the decision and its reasoning, not current architecture. The one piece of this ADR that **remains active**: the system-scoped signed-envelope mechanism itself (`signSystemServiceRequest`/`verifySystemServiceRequest`, `requireSystemServiceRequest`) was not deleted — it now gates `POST /api/tools/execute` (EL3, adopted after this ADR was written), not `/sync/tick`. The Consequences section's "three call shapes... /ask, /deliver, and system-scoped /sync/tick" line is accordingly stale — read it as history, not the current call-shape count.
 
 ## Date
-2026-07-25
+2026-07-25 (Superseded 2026-08-26)
 
 ## Context
 

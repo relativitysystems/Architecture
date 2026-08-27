@@ -32,8 +32,8 @@ Working document for [EMAIL_INGESTION.md](EMAIL_INGESTION.md) §26/§29's "provi
 
 For each *sensitive/restricted* scope, Google's review form asks for a written justification plus (for restricted scopes) evidence in the demo video that the scope is used narrowly. Draft these in advance rather than writing them live in the console form:
 
-- [ ] **`gmail.readonly` justification** — narrow framing: used only to read messages a member has explicitly labeled (manual mode) or that match an admin-configured organization policy (automatic mode), never blanket mailbox access; no send/modify/compose/delete scope is requested (this narrowness is already a documented design property, EMAIL_INGESTION.md §25 table).
-- [ ] **`gmail.labels` justification** — used only to create/read the single managed "Relativity/Knowledge" label used for the manual-mode consent mechanism, not general label management.
+- [ ] **`gmail.readonly` justification** — narrow framing: used only to read messages a member has explicitly labeled AND that match an admin-configured organization policy, never blanket mailbox access; no send/modify/compose/delete scope is requested (this narrowness is already a documented design property, EMAIL_INGESTION.md §25 table). *(Updated 2026-08-26, EM10.6: the original draft also justified reading policy-matching-but-unlabeled mail under a since-removed "automatic mode" — Automatic Email Ingestion no longer exists, so this justification is narrower and stronger than the original draft, not weaker.)*
+- [ ] **`gmail.labels` justification** — used only to create/read the single managed "Relativity/Knowledge" label used for the label-driven consent mechanism, not general label management.
 - [ ] Internal legal/founder review of both justification drafts before submission — these are the sentences Google's reviewer weighs most heavily for restricted scopes.
 
 ## Part 3 — Demo video

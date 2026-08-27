@@ -105,9 +105,9 @@ Neither run hit the unchanged-hash skip (Bug 7), the storage-collision error (Bu
 ### Scenario 7 — Automatic sync
 **Action**: Member B switches to `automatic` mode (org-wide toggle on) and sends themselves new policy-matching mail with no label.
 **Expected**: the mail appears as searchable content within one real tick interval, with no manual "Sync now" click.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**What actually happened**:
-**Bugs found** (#):
+**Result**: ☒ N/A / Removed from V1 scope
+**What actually happened**: While preparing to run this scenario (2026-08-26), read-only inspection of the deployed Inngest Cloud app found that the `email-sync-tick` cron function had never actually been registered/re-synced since before it was added to the codebase — the automatic-mode tick had never fired in production, despite EM8's DI-faked test suite and this document's own checklist scaffolding treating it as implemented. Rather than provision the missing Inngest sync and validate a second, structurally weaker (no per-message label, policy-only) ingestion mode that had never run for real, the product decision was to remove **Automatic Email Ingestion** from V1 entirely. Gmail ingestion is label-driven only now: apply the `Relativity/Knowledge` label → policy evaluation → ingestion. See [EMAIL_INGESTION.md](EMAIL_INGESTION.md)'s EM10.6 Implementation Record for the full removal (code, schema migration, and test changes across both repositories, applied and verified 2026-08-26) and rationale.
+**Bugs found** (#): None — not a bug, an intentional scope removal. The dead-tick discovery is documented here for the record, not logged as a bug in Part 2, since the removal makes it moot rather than something to fix.
 
 ### Scenario 8 — Disconnect with cleanup
 **Action**: Member A disconnects with `cleanupIngestedContent: true`.
