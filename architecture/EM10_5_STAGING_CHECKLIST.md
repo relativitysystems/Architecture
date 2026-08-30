@@ -119,9 +119,9 @@ Neither run hit the unchanged-hash skip (Bug 7), the storage-collision error (Bu
 ### Scenario 9 — Disconnect without cleanup
 **Action**: Member B disconnects with no cleanup flag.
 **Expected**: Member B's connection is revoked and stops syncing, but their previously-ingested content remains searchable.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**What actually happened**:
-**Bugs found** (#):
+**Result**: ☑ Pass ☐ Fail ☐ Partial
+**What actually happened**: Member B's prior connection had been left in a stuck `sync_enabled: false` state from earlier testing (see the EM10.7 Implementation Record — a member re-enable path not restoring `sync_enabled`, unrelated to this scenario); Member B disconnected and reconnected via a fresh OAuth round trip first (2026-08-30 04:05 UTC), producing a new working connection (`sync_enabled: true`, `Label_6`). Two new test emails (`QA Test — Northstar Vendor Policy`, `QA Test — Project Aurora Deployment`) were sent, labeled, and synced successfully, then confirmed citable in chat. Member B then clicked Disconnect (no cleanup flag) at 2026-08-30 04:25 UTC — production `oauth_connections.status` flipped to `revoked` immediately. Post-disconnect, `GET /connections` no longer returned Member B's connection at all, so the portal correctly hid the entire sync shell (no "Sync now" button available to even attempt) — stronger confirmation the connection stopped than a rejected sync call would have been. The same chat questions from before the disconnect still returned correct answers citing the two QA Test documents. Direct database check confirmed both documents remain `status: indexed` post-disconnect, and Member A's three original documents (Project Phoenix Onboarding SOP, Customer Refund Policy, Weekly Sales Meeting Agenda) are entirely untouched.
+**Bugs found** (#): None — the `sync_enabled` re-enable gap encountered during setup is not a Scenario 9 bug; it's logged separately against EM9/`routes/team.js` in the EM10.7 Implementation Record ([EMAIL_INGESTION.md](EMAIL_INGESTION.md)).
 
 ---
 
