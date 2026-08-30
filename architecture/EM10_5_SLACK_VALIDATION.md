@@ -11,7 +11,7 @@ The division of labour is exact:
 
 This document does **not** own Gmail ingestion. Where a scenario needs indexed content to change (a label removed, a policy edited, a member disconnected), the change is made through the portal/Gmail exactly as EM10.5 already specifies, EM10.5 proves the document and chunk state actually changed, and this document only asks: **does Slack now behave accordingly?** Backend assertions are not duplicated here unless they are needed to diagnose a Slack-side failure.
 
-**Status: In progress — Part A complete, Part B started (B5 run early, out of order, alongside the A.6 fix). B1–B4, B6–B9, Parts C and D not yet run.**
+**Status: In progress — Part A complete, Part B started (B5 run early, out of order, alongside the A.6 fix; B1, B2 passed 2026-08-30). B3–B4, B6–B9, Parts C and D not yet run.**
 
 ---
 
@@ -217,9 +217,9 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 **Action**: `@mention` the bot in the test channel with each of A.5's three reference questions, one at a time.
 **Expected**: each returns the known-good answer from the table in A.5, followed by a `Sources:` block naming the correct Gmail-backed document (rendered as its `title`, or as `"Subject" from Sender`).
 **Evidence to capture**: answer text and sources block per question; confirmation of **no** `email_ingestion_events` row with a non-null `tool_name` in the request window; absence of any `(Live)` suffix.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**Notes**:
-**Bugs found** (#):
+**Result**: ☑ Pass ☐ Fail ☐ Partial
+**Notes**: All three questions asked as channel `@mention`s in `C0B75NXAMGW`, 2026-08-30 ~04:33 UTC. Each answered correctly with the right fact and cited exactly the right document: Project Phoenix onboarding steps → "Project Phoenix Onboarding SOP"; weekly sales meeting → Thursday 9:00 AM, "Weekly Sales Meeting Agenda"; refund policy → 30 days (plus genuine extra detail from the source email: fully-delivered digital services excluded, 5-business-day processing, order number required), "Customer Refund Policy". No `(Live)` suffix on any source. `slack_event_log` shows exactly 3 `app_mention` events, all `status: delivered`, same channel, no thread, each completing in ~6-7s. `email_ingestion_events` has zero rows in the 04:33:15–04:34:06 UTC request window — no live tool call occurred (a live call would leave a row with a non-null `tool_name`).
+**Bugs found** (#): None
 
 ### B2 — Portal vs. Slack parity
 
@@ -230,9 +230,9 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 
 | Question | Portal answer | Slack answer | Same source doc? | Unrelated citations? | Consistent? |
 |---|---|---|---|---|---|
-| Project Phoenix onboarding steps | | | ☐ | ☐ | ☐ |
-| Weekly sales meeting time | | | ☐ | ☐ | ☐ |
-| Refund policy | | | ☐ | ☐ | ☐ |
+| Project Phoenix onboarding steps | 5-step process: create client account → upload onboarding docs → schedule kickoff within 2 business days → assign implementation specialist → send welcome email | Identical 5 steps, same order | ☑ "Project Phoenix Onboarding SOP" | ☑ None | ☑ |
+| Weekly sales meeting time | Thursday 9:00 AM | Thursday 9:00 AM | ☑ "Weekly Sales Meeting Agenda" | ☑ None | ☑ |
+| Refund policy | 30 calendar days; fully-delivered digital services excluded; order number required; 5-business-day processing | Same four facts, same wording | ☑ "Customer Refund Policy" | ☑ None | ☑ |
 
 **Expected**:
 - materially consistent answers (wording may differ; facts, and any figure such as "Thursday 9:00 AM" or "30 days", must not);
@@ -242,9 +242,9 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 - collection restrictions behave as expected on both.
 
 **Evidence to capture**: the completed table; both surfaces' full source lists side by side; for any divergence, the allow-list state at the time.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**Notes**:
-**Bugs found** (#):
+**Result**: ☑ Pass ☐ Fail ☐ Partial
+**Notes**: All three questions run with identical text on both surfaces, 2026-08-30. Facts matched exactly on every question (no wording-vs-fact ambiguity to resolve). The only divergence is expected and by design: the portal renders an "Open in Gmail" deep link per source, Slack does not (`slackAnswerFormatter.js` never emits one — see this document's "Known constraints" section; EM10.5 Scenario 2's deep-link acceptance criterion is portal-only). No knowledge gap on either surface; both correctly retrieved all three Gmail-backed documents from the allow-listed `c033f615` collection.
+**Bugs found** (#): None
 
 ### B3 — Channel `@mention` vs. DM parity
 
