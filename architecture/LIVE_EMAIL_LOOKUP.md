@@ -742,6 +742,23 @@ Split out from a single "EL7" milestone (confirmed, 2026-07-30) specifically so 
 
 30 new tests across both repos. Full suites green: 816/816 Relativity; 152/153 AIKB (the one pre-existing, unrelated failure noted since EL5's own record, still not fixed there — out of scope).
 
+### EL7C — Slack Live-Email Access Removal
+- **Status: Implemented (2026-08-30).** See the Implementation Record below.
+- **Objective**: remove EL7A (Slack identity linking) and EL7B (Slack live-email access) entirely. Live email lookup remains **portal-only**.
+- **Repos**: Relativity (code/tests), Architecture (docs). No AIKB change — it already degrades gracefully for a null `memberId`/`false emailLookupAvailable`.
+- **Rationale**: the portal resolves the asking member from its own authenticated session — no identity-linking mechanism is needed there. Slack DMs have no session equivalent, so EL7A/EL7B built a manual "generate a code in the portal, DM it to the bot" linking flow to bridge that specific gap. That flow was never actually used in practice — `slack_user_links` has been empty since it shipped on 2026-07-31, and [EM10_5_SLACK_VALIDATION.md](EM10_5_SLACK_VALIDATION.md)'s Part D / C1 scenario covering it was never run. Removing it drops an unvalidated, never-exercised code path without losing any real functionality — the portal's own live-lookup path (EL4–EL6, EL8, EL9) is entirely unaffected.
+- **Deferred**: none — this is a straight removal, not a redesign. Slack identity linking could be revisited later if a real need for it materializes, but nothing here is left half-built.
+
+#### EL7C Implementation Record
+
+Removed entirely: `Relativity/services/slackUserLinkService.js` (the whole file — `generateLinkCode`/`completeLink`/`getLinkedMember`); the `POST /api/integrations/slack/link/generate-code` route (`Relativity/routes/integrations/slack.js`); the `link CODE` DM-interception block and the `requestingMemberId`/`emailLookupAvailable` resolution block in `Relativity/services/slackEventsService.js` (Slack now always sends `memberId: null, emailLookupAvailable: false` to `aikbAskClient.ask`); the `slack-link-section` card in the portal (`portal.html`/`portal.js`); and the `slack_link_codes`/`slack_user_links` tables (migration `20260830_slack_live_lookup_removal_el7c.sql`, dropping the tables `20260731_slack_identity_linking_el7a.sql` created — confirmed no other referencer anywhere in either repo). `Relativity/services/slackAnswerFormatter.js`'s `FALLBACK.EMAIL_LOOKUP_SUGGESTED` string was reworded to point to the portal only, since Slack linking no longer exists to reference.
+
+**Deliberately left untouched**: the `'slack_dm'` vs `'slack'` `origin` distinction — unrelated to identity linking, still used for session-privacy filtering (DM sessions excluded from the portal's own session list). `Relativity/services/emailLiveLookupService.js` itself — it's shared with the portal's own live-lookup path (via `toolExecutionService.js`) and is untouched; only Slack's now-removed call into its `isLiveLookupAvailable` check went away.
+
+This document's own EL7A/EL7B sections above are left as a historical record of what was built and why, per this repo's established convention (e.g. EM10.6/EM10.7's own removal records in [EMAIL_INGESTION.md](EMAIL_INGESTION.md)) — this section documents the removal, not a rewrite of that history. [EM10_5_SLACK_VALIDATION.md](EM10_5_SLACK_VALIDATION.md)'s C1 scenario and Part D are marked N/A/Removed accordingly.
+
+Full Relativity suite green: 826/826 (17 tests removed with the dedicated `slackUserLinkService.test.js` file and the EL7A/EL7B-specific cases in `slackEventsService.test.js`/`slackRoutes.test.js`; a small number of stale assertions in `slackAnswerFormatter.test.js`/`slackDeliverService.test.js` updated for the reworded fallback text).
+
 ### EL8 — Citations and live-source UI
 - **Status: Implemented (2026-07-31), assembled from two sources.** See the Implementation Record below — most of this milestone's core UI work was already built opportunistically during EL6 (portal) and EL7B (Slack), each shipped as their own citations needed to actually render correctly; this pass added what neither had covered yet: the dedicated security tests §6 explicitly calls for, and an honest accounting of `live_email_attachment`.
 - **Objective**: [§6](#6-sources-and-citations)'s full design — the "Live sources" grouping, freshness badges, sender/date/deep-link display, portal and Slack citation rendering.

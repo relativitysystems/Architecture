@@ -11,7 +11,7 @@ The division of labour is exact:
 
 This document does **not** own Gmail ingestion. Where a scenario needs indexed content to change (a label removed, a policy edited, a member disconnected), the change is made through the portal/Gmail exactly as EM10.5 already specifies, EM10.5 proves the document and chunk state actually changed, and this document only asks: **does Slack now behave accordingly?** Backend assertions are not duplicated here unless they are needed to diagnose a Slack-side failure.
 
-**Status: In progress — Part A complete, Part B started (B5 run early, out of order, alongside the A.6 fix; B1, B2 passed 2026-08-30). B3–B4, B6–B9, Parts C and D not yet run.**
+**Status: In progress — Part A complete, Part B started (B5 run early, out of order, alongside the A.6 fix; B1, B2 passed 2026-08-30). B3–B4, B6–B9 not yet run. C1 and all of Part D are N/A/Removed (EL7C, 2026-08-30) — Slack identity linking and live-email lookup were removed entirely; see each section. C2–C6 not yet run.**
 
 ---
 
@@ -356,15 +356,17 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 
 Slack-specific mechanics with no portal analog. Keep these separate from Part B: a failure here is a delivery/platform defect, not a knowledge-retrieval defect.
 
-### C1 — Identity linking (EL7A)
+### ~~C1 — Identity linking (EL7A)~~
 
-**Setup**: Slack User A unlinked; portal Email panel accessible.
+**N/A / Removed (EL7C, 2026-08-30).** Slack identity linking (EL7A) and Slack's live-email-lookup path (EL7B) were removed entirely before this scenario was ever run — `slack_user_links` had been empty since EL7A shipped (2026-07-31), confirming the linking flow was never actually used in practice. Live email lookup remains portal-only. See the [EL7C Implementation Record](LIVE_EMAIL_LOOKUP.md#el7c--slack-live-email-access-removal) for the removal rationale and scope.
+
+~~**Setup**: Slack User A unlinked; portal Email panel accessible.
 **Action**: generate a link code in the portal (`POST /api/integrations/slack/link/generate-code`) and DM the bot `link CODE`. Then exercise each failure mode: a reused code, an expired code, an unknown/malformed code, and a code generated under a different client.
 **Expected**: the valid code links and replies *"Your Slack account is now linked to your Relativity mailbox."* Each failure mode returns its own non-leaking reply (`linkAttemptReplyText` — `not_found` and `client_mismatch` deliberately share wording so a wrong-client code is indistinguishable from an invalid one; `reused` and `expired` are distinct). Codes are single-use and hash-stored (`slack_link_codes`). No link is ever resolved from a Slack-reported email address alone.
 **Evidence to capture**: each reply verbatim; the `slack_user_links` row after success; confirmation a re-link to a different member cleanly replaces the prior mapping.
 **Result**: ☐ Pass ☐ Fail ☐ Partial
 **Notes**:
-**Bugs found** (#):
+**Bugs found** (#):~~
 
 ### C2 — Asynchronous delivery lifecycle
 
@@ -438,9 +440,11 @@ Slack-specific mechanics with no portal analog. Keep these separate from Part B:
 
 ---
 
-# Part D — Live Gmail lookup (supplemental)
+# ~~Part D — Live Gmail lookup (supplemental)~~
 
-**Clearly separate from Parts B and C.** This is a **surface smoke check only** — confirming that the already-built live-lookup backend surfaces correctly through Slack. [EL10](LIVE_EMAIL_LOOKUP.md#el10--staging-validation-and-security-testing) remains the authoritative validation for live email lookup, and its scope is unchanged: real-account and prompt-injection security validation of the live-lookup **backend**, via direct signed `POST /api/tools/execute` / `runKnowledgeQuery` calls. Nothing here discharges EL10, and a failure here should be triaged as Slack-surface or backend before being logged against either.
+**N/A / Removed (EL7C, 2026-08-30).** Slack's live-email-lookup path (EL7B), and the identity linking (EL7A) it depended on, were removed entirely before any scenario in this Part was ever run. Live email lookup remains portal-only — there is no Slack surface left for D1–D4 to validate. [EL10](LIVE_EMAIL_LOOKUP.md#el10--staging-validation-and-security-testing) remains the authoritative validation for the live-lookup backend itself, unaffected by this removal. See the [EL7C Implementation Record](LIVE_EMAIL_LOOKUP.md#el7c--slack-live-email-access-removal) for the removal rationale and scope.
+
+~~**Clearly separate from Parts B and C.** This is a **surface smoke check only** — confirming that the already-built live-lookup backend surfaces correctly through Slack. [EL10](LIVE_EMAIL_LOOKUP.md#el10--staging-validation-and-security-testing) remains the authoritative validation for live email lookup, and its scope is unchanged: real-account and prompt-injection security validation of the live-lookup **backend**, via direct signed `POST /api/tools/execute` / `runKnowledgeQuery` calls. Nothing here discharges EL10, and a failure here should be triaged as Slack-surface or backend before being logged against either.
 
 **Do not let any result in this Part be used as evidence for a Part B scenario.**
 
@@ -483,7 +487,7 @@ Slack-specific mechanics with no portal analog. Keep these separate from Part B:
 **Why this matters beyond Part D**: this scenario is what licenses Part B's use of channel `@mention`s as a contamination-free control. If it fails, Part B's evidence model needs revisiting.
 **Result**: ☐ Pass ☐ Fail ☐ Partial
 **Notes**:
-**Bugs found** (#):
+**Bugs found** (#):~~
 
 ---
 
