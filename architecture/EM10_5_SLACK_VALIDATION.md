@@ -11,7 +11,7 @@ The division of labour is exact:
 
 This document does **not** own Gmail ingestion. Where a scenario needs indexed content to change (a label removed, a policy edited, a member disconnected), the change is made through the portal/Gmail exactly as EM10.5 already specifies, EM10.5 proves the document and chunk state actually changed, and this document only asks: **does Slack now behave accordingly?** Backend assertions are not duplicated here unless they are needed to diagnose a Slack-side failure.
 
-**Status: In progress — Part A complete, Part B underway (B5 run early, out of order, alongside the A.6 fix; B1, B2, B3, B4 passed 2026-08-30; B6 passed 2026-08-30 on weaker evidence than this document's own standard — see its own section). B7–B9 not yet run. C1 and all of Part D are N/A/Removed (EL7C, 2026-08-30) — Slack identity linking and live-email lookup were removed entirely; see each section. C2–C6 not yet run.**
+**Status: In progress — Part A complete, Part B underway (B5 run early, out of order, alongside the A.6 fix; B1, B2, B3, B4 passed 2026-08-30; B6 passed 2026-08-30 on weaker evidence than this document's own standard — see its own section; B7 passed 2026-09-02, surfacing and fixing Bug 5 along the way). B8–B9 not yet run. C1 and all of Part D are N/A/Removed (EL7C, 2026-08-30) — Slack identity linking and live-email lookup were removed entirely; see each section. C2–C6 not yet run.**
 
 ---
 
@@ -340,9 +340,13 @@ Answer text is a correct gap (no citation of the removed document) — matches t
 
 **Bug 5 fixed and re-verified (2026-08-31)**: `isKnowledgeGapAnswer()` patched to also check for the `Source: N/A` line (deployed to production, Railway `AI_Knowledge_Base_Inngest` service, commit `777a118`). Re-asked the same question live in Slack, 7:43 AM: clean `"I couldn't find that information in your organization's knowledge base."`, no Sources block. Fix confirmed working end-to-end.
 
-**Result**: ☐ Pass ☐ Fail ☐ Partial *(pending steps 5–7)*
-**Notes**: Bug 5 found, fixed, and re-verified live at step 4; does not block continuing to steps 5–7, since the core label-removal lifecycle behavior (document becomes unanswerable) is confirmed.
-**Bugs found** (#): 5
+**Steps 5–6 (2026-09-02)**: `Relativity/Knowledge` label re-added in Gmail; re-synced via portal. Confirmed directly against AIKB (per Bug 6, not the sync summary): `email_ingestion_events` recorded outcome `ingested` at 05:40:28 UTC, reason "Matched allow rule 4b806d48-371e-49ed-8220-314a737f7e9a" (the same message id, `19fcfcc40e0d66c1`, that was tombstoned at step 3). `knowledge_ingestion_jobs` shows a `completed` job for this document created 05:40:28, updated 05:40:33. `knowledge_documents.status` is back to `indexed`, chunk count `0` → `1`, `last_indexed_at` 05:40:32. Minor evidence-trail note (mirror image of step 3's): this `ingested` event's own `ingested_document_id` column is null even though the document row and job both resolve cleanly to `eef87a0b-c6db-45eb-956f-1243406f159f` — not treated as a defect, same as step 3's analogous gap.
+
+**Step 7 evidence (2026-09-02, ~05:40:50 UTC)**: `knowledge_slack_request_log` shows one `slack`-origin request at 05:40:50 (18s after the step 6 sync completed), `status: delivered`, `attempt_count: 1`, no `error_category`. Reporter (user) confirmed the answer itself was clean — the document was answerable again, matching step 1. Answer text was not captured verbatim in this pass (the request-log table stores delivery metadata only, not message content) — flagged as weaker evidence than steps 1 and 4, which do have verbatim quotes; if a verbatim re-confirmation is ever needed, re-ask the same question in the same channel.
+
+**Result**: ☑ **Pass — 2026-09-02.** Full label-removal → tombstone → re-add → re-ingest → retrievable-again lifecycle confirmed through Slack, backed by direct AIKB/backend evidence at every step (per Bug 6, not the sync summary). Bug 5 found and fixed along the way (step 4); no further bugs found in steps 5–7.
+**Notes**: steps 5–7 exercise the deleted-document re-ingest path that produced EM10.5 Bugs 7, 8, and 9 — no recurrence observed here; the document cleanly returned to `indexed` with the same `document_id` reused (no duplicate row).
+**Bugs found** (#): 5 (found in step 4; none new in steps 5–7)
 
 ### B8 — Policy change propagates to Slack
 
