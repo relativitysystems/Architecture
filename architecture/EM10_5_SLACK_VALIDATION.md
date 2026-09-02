@@ -11,7 +11,7 @@ The division of labour is exact:
 
 This document does **not** own Gmail ingestion. Where a scenario needs indexed content to change (a label removed, a policy edited, a member disconnected), the change is made through the portal/Gmail exactly as EM10.5 already specifies, EM10.5 proves the document and chunk state actually changed, and this document only asks: **does Slack now behave accordingly?** Backend assertions are not duplicated here unless they are needed to diagnose a Slack-side failure.
 
-**Status: In progress — Part A complete, Part B started (B5 run early, out of order, alongside the A.6 fix; B1, B2 passed 2026-08-30). B3–B4, B6–B9 not yet run. C1 and all of Part D are N/A/Removed (EL7C, 2026-08-30) — Slack identity linking and live-email lookup were removed entirely; see each section. C2–C6 not yet run.**
+**Status: In progress — Part A complete, Part B underway (B5 run early, out of order, alongside the A.6 fix; B1, B2, B3, B4 passed 2026-08-30; B6 passed 2026-08-30 on weaker evidence than this document's own standard — see its own section). B7–B9 not yet run. C1 and all of Part D are N/A/Removed (EL7C, 2026-08-30) — Slack identity linking and live-email lookup were removed entirely; see each section. C2–C6 not yet run.**
 
 ---
 
@@ -20,16 +20,21 @@ This document does **not** own Gmail ingestion. Where a scenario needs indexed c
 Slack has no verb for connecting a mailbox, editing organization policy, disabling a member, changing sync mode, triggering a sync, or cleaning up content. Those are portal/admin-console actions and appear in this document only as **setup steps**. The only user-initiated Slack inputs that exist are:
 
 - `@mention` of the bot in a channel (`app_mention`),
-- a direct message to the bot (`message` with `channel_type: 'im'`),
-- the DM link command `link CODE` ([EL7A](LIVE_EMAIL_LOOKUP.md#el7a--slack-identity-linking), `slackEventsService.js` `LINK_COMMAND_PATTERN`).
+- a direct message to the bot (`message` with `channel_type: 'im'`).
+
+~~the DM link command `link CODE` (EL7A, `slackEventsService.js` `LINK_COMMAND_PATTERN`)~~ — **removed (EL7C, 2026-08-30)**. Slack identity linking no longer exists; a `link CODE`-shaped message is now just an ordinary question like any other.
 
 Group DMs (`mpim`) are explicitly refused (`OUTCOME.MPIM_UNSUPPORTED`). Every other event type is a silent HTTP 200 no-op.
 
 ---
 
-## Stored Gmail knowledge vs. live Gmail lookup — read this before running anything
+## Stored Gmail knowledge vs. live Gmail lookup — historical framing, superseded by EL7C
 
-These are two different features that can produce superficially similar Slack answers. Confusing them will silently invalidate results.
+**Superseded (EL7C, 2026-08-30).** This section originally distinguished stored Gmail knowledge (this document's subject) from live Gmail lookup through Slack (Part D, supplemental), because a DM from a linked user could contaminate a Part B result with a live tool call. **Slack's live-lookup path (EL7B) and the identity linking it depended on (EL7A) have been removed entirely** — see the [EL7C Implementation Record](LIVE_EMAIL_LOOKUP.md#el7c--slack-live-email-access-removal). `slackEventsService.js` now unconditionally sends `memberId: null, emailLookupAvailable: false` for every Slack request, channel or DM alike — there is no code path left by which a live tool call can occur through Slack, so the contamination risk this section warned about no longer exists, and neither does Part D (see its own N/A/Removed note).
+
+**Practical effect: every Part B scenario, whether run as a channel `@mention` or a DM, is now equally safe** — no evidence-rules ceremony is required to prove a stored-knowledge answer wasn't contaminated by a live lookup, because no live lookup is reachable at all. The historical detail below is retained for context, not as a live procedure.
+
+~~These are two different features that can produce superficially similar Slack answers. Confusing them will silently invalidate results.
 
 | | **Stored Gmail knowledge** (this document's primary subject) | **Live Gmail lookup** (supplemental, Part D) |
 |---|---|---|
@@ -65,7 +70,7 @@ For any Part B scenario run over DM, or any result you doubt, capture at least t
 4. **`emailLookupAvailable`.** Logged/derivable per request; `false` means no tools were offered at all.
 5. **Unlinked-user control.** An unlinked Slack user can never trigger a live lookup (`getLinkedMember` returns nothing → `requestingMemberId` stays null).
 
-**Expected result for every pure ingestion test: the indexed Gmail document is retrieved, and no live Gmail tool call was required or made.**
+**Expected result for every pure ingestion test: the indexed Gmail document is retrieved, and no live Gmail tool call was required or made.**~~
 
 ---
 
@@ -248,14 +253,14 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 
 ### B3 — Channel `@mention` vs. DM parity
 
-**Setup**: B1 passed. Slack User A linked (run C1 first if not).
+**Setup**: B1 passed. ~~Slack User A linked (run C1 first if not).~~ **Superseded (EL7C, 2026-08-30)**: Slack identity linking no longer exists — see C1's own N/A/Removed note. No setup beyond B1 is needed.
 **Action**: ask each of A.5's three reference questions **again as a DM** to the bot. Compare to B1's channel results.
 **Expected**: both surfaces retrieve the same stored AIKB knowledge, subject to the same collection access. DM answers match the channel answers on facts and cited document.
-**This is the one Part B scenario where live-lookup contamination is possible** — a DM from a linked user with an active mailbox may have tools offered. Apply the full evidence rules.
-**Evidence to capture**: per DM question — the answer, the sources block, whether any source carried `(Live)`, and whether any `email_ingestion_events` row with a non-null `tool_name` was written. For a stored-knowledge question the expected answer is **no tool call**; if a tool *was* called and the answer still matched, record that explicitly rather than passing silently — it means the stored path was not exclusively exercised.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**Notes**:
-**Bugs found** (#):
+~~**This is the one Part B scenario where live-lookup contamination is possible** — a DM from a linked user with an active mailbox may have tools offered. Apply the full evidence rules.~~ **Superseded (EL7C)**: live-lookup contamination from a DM is now structurally impossible — `slackEventsService.js` always sends `memberId: null, emailLookupAvailable: false` to AIKB, with no linking mechanism left to resolve a member from. This scenario now exists purely to confirm DM and channel `@mention` share the identical stored-knowledge retrieval path, nothing more.
+**Evidence to capture**: per DM question — the answer and sources block, and confirmation it matches the corresponding B1 channel result. The old live-lookup checks (`(Live)` suffix, `email_ingestion_events` tool-call rows) are no longer meaningful evidence here post-EL7C — retained only as a sanity check, not as a required pass condition.
+**Result**: ☑ Pass ☐ Fail ☐ Partial
+**Notes**: All three reference questions DM'd to the bot in `D0B7BF7N4JG`, 2026-08-30 19:46:40–19:47:18 UTC. `slack_event_log` shows exactly 3 `message` events, all `status: delivered`, single attempt each, completing in 6–11s. Facts and cited documents matched B1's channel answers exactly (Thursday 9:00 AM, 30 days, the onboarding steps). The one observed difference — no "Open in Gmail" link on the DM answers — is expected, not a defect: per this document's "Known constraints" section, Slack citations never carry a deep link on either surface, channel or DM. Zero `email_ingestion_events` rows in the request window, consistent with EL7C (no live tool call is reachable from Slack at all anymore).
+**Bugs found** (#): None
 
 ### B4 — Citation integrity (EM10.5 Bug 1 regression, through the Slack path)
 
@@ -270,9 +275,9 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 - formatting is readable — `Sources:` header present, one `• ` line per source, nothing truncated mid-token.
 
 **Evidence to capture**: the verbatim Slack message, including the complete sources block.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**Notes**:
-**Bugs found** (#):
+**Result**: ☑ Pass ☐ Fail ☐ Partial
+**Notes**: Asked as a channel `@mention` in `C0B75NXAMGW`, 2026-08-30 19:50:33 UTC (`slack_event_log` event `2493e675…`, `status: delivered`, completed in ~6.7s). The sources block cited only "Weekly Sales Meeting Agenda" — none of the previously-observed unrelated candidates (`test_b_long.txt`, the accredited-investors PDF, `slack-test.txt`, the unrelated Project Phoenix email) appeared. Confirms EM10.5 Bug 1's citation-filtering fix holds through the Slack path, not just the portal (where it was originally verified 2026-08-05). Zero `email_ingestion_events` rows in the request window.
+**Bugs found** (#): None
 
 ### B5 — Collection access fails closed
 
@@ -298,17 +303,17 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 **Action**: from the test workspace, ask Slack a question that would only be answerable from that out-of-scope content — both as a channel `@mention` and as a DM. Ask the same question in the portal as the control.
 **Expected**: Slack never retrieves it. No cross-client source metadata, titles, subjects, or senders appear. Portal and Slack isolation behavior are consistent — neither surface answers.
 **Evidence to capture**: both Slack messages verbatim; the portal control result; the resolved `client_id` on the Slack request (workspace → client mapping is re-resolved per request from `team_id`, never trusted from the payload).
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**Notes**:
-**Bugs found** (#):
+**Result**: ☑ **Pass — 2026-08-30, on weaker evidence than this document's own stated standard.** Not run as a fresh, controlled query from the Relativity Systems test workspace against a specific identified out-of-scope document (the originally proposed check, using Scribed.ai's `Capital-Raise-Pipeline-SOP.pdf`, was not carried out — no `slack_event_log`/`email_ingestion_events` trail exists for it). Marked Pass instead on the reporter's own firsthand account: while a different real client (Dawna) used the product, she was observed to only see outputs sourced from her own client's documents, never another tenant's.
+**Notes**: this is real evidence of tenant isolation holding in practice, but it is a different, softer kind than every other scenario in this document — an incidental observation of one client's own session, not a targeted cross-tenant probe from the test client with a captured verbatim reply and a resolved `client_id`. It doesn't specifically exercise the Slack `team_id → client_id` resolution path this scenario was written to test (Dawna's observation was, per context, about the product generally, not necessarily the Slack surface specifically). If a Slack-specific regression in that resolution path is ever suspected, this result should not be treated as having ruled it out — the original controlled check (ask about `Capital-Raise-Pipeline-SOP.pdf` from the Relativity Systems workspace, confirm a clean knowledge gap and the correct resolved `client_id`) remains a quick, cheap way to get first-party evidence.
+**Bugs found** (#): none
 
 ### B7 — Label removal propagates to Slack
 
 *Verification-only. The action and the backend proof belong to EM10.5 Scenario 3, which already passed in production on 2026-08-08.*
 
-**Setup**: one known ingested Gmail document that is currently answerable in Slack (confirm via B1 before starting). Record which: ______________________
+**Setup**: one known ingested Gmail document that is currently answerable in Slack (confirm via B1 before starting). Record which: **"Customer Refund Policy"** (one of A.5's three reference documents; also used as B1/B2's refund-policy question).
 **Action**:
-1. Confirm the document is answerable in Slack.
+1. Confirm the document is answerable in Slack. ☑ **Done — 2026-08-31.**
 2. Remove the `Relativity/Knowledge` label in Gmail.
 3. Run a sync through the existing portal workflow; confirm it completed.
 4. Ask the same question in Slack.
@@ -318,9 +323,26 @@ This is `slack_collection_access` behaving exactly as [ADR-005](../decisions/ADR
 
 **Expected**: after step 4, the document is no longer answerable in Slack (knowledge gap, or an answer that no longer cites it). After step 7, it is answerable again. Slack tracks the same indexed-state lifecycle as the portal, because both consume the same AIKB retrieval.
 **Evidence to capture**: Slack messages at steps 1, 4, and 7. Per Bug 6, **do not** rely on the sync summary — capture `email_ingestion_events` outcomes for steps 3 and 6, and the document's status/chunk count if a step fails. Note that steps 5–7 exercise the deleted-document re-ingest path that produced EM10.5 Bugs 7, 8, and 9; if step 7 fails, check whether the document actually returned to `indexed` before logging it as a Slack bug.
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**Notes**:
-**Bugs found** (#):
+
+**Step 1 evidence (2026-08-31, 7:26 AM)** — `@mention` in channel, question "what is our refund policy?":
+> TL;DR: Customers can request a refund within 30 calendar days of purchase, provided they include the original order number. Refunds are processed within 5 business days after approval. Refunds are not available for digital services that have already been fully delivered.
+> Source: Email — "Customer Refund Policy" from 10zinsteel@gmail.com, Aug 5, 2026
+> Sources: "Customer Refund Policy" from 10zinsteel@gmail.com — via tenzin@relativitysystems.ai's mailbox
+
+**Steps 2–3 (2026-08-31)**: label removed in Gmail; synced via portal. Confirmed directly against AIKB (per Bug 6, not the sync summary): `knowledge_documents.status` for this document went `indexed` → `deleted`, `updated_at` bumped to the sync time, chunk count `1` → `0`. No corresponding row appeared in `knowledge_ingestion_jobs` for this sync — the delete path updates the document row directly rather than logging a job; noted as a minor evidence-trail gap, not a defect (state change is independently confirmed via status + chunk count).
+
+**Step 4 evidence (2026-08-31, 7:32 AM)** — same question, same channel:
+> TL;DR: There is no documented refund policy in the provided knowledge base.
+> Source: N/A
+> Sources: test_b_long.txt · restricted-test.txt · "Accreited investors TO 2026 .pdf.pdf" · "QA Test — Northstar Vendor Policy" · "Weekly Sales Meeting Agenda"
+
+Answer text is a correct gap (no citation of the removed document) — matches this step's core expectation. But see **Bug 5**: the response still rendered a `Sources:` block of unrelated retrieved-but-unused documents alongside a `Source: N/A` gap answer, because the gap-phrase heuristic in `aikb/services/runKnowledgeQuery.js` didn't recognize this phrasing.
+
+**Bug 5 fixed and re-verified (2026-08-31)**: `isKnowledgeGapAnswer()` patched to also check for the `Source: N/A` line (deployed to production, Railway `AI_Knowledge_Base_Inngest` service, commit `777a118`). Re-asked the same question live in Slack, 7:43 AM: clean `"I couldn't find that information in your organization's knowledge base."`, no Sources block. Fix confirmed working end-to-end.
+
+**Result**: ☐ Pass ☐ Fail ☐ Partial *(pending steps 5–7)*
+**Notes**: Bug 5 found, fixed, and re-verified live at step 4; does not block continuing to steps 5–7, since the core label-removal lifecycle behavior (document becomes unanswerable) is confirmed.
+**Bugs found** (#): 5
 
 ### B8 — Policy change propagates to Slack
 
@@ -501,6 +523,7 @@ Slack-specific mechanics with no portal analog. Keep these separate from Part B:
 | 2 | A.5 | **`Weekly Sales Meeting Agenda` is indexed and searchable, contradicting EM10.5's own closing record.** EM10.5 Scenario 3's final 2026-08-08 retest states the managed label was removed from this message and the Full Scan "correctly not re-imported" it. AIKB shows document `83039afe-…` at `status = indexed` with 1 chunk, `updated_at` 2026-08-08 15:20:30 — 17 minutes *after* the two documents that scan did import (15:03:04). Some event re-indexed it that EM10.5's record does not describe. Either the label was re-applied out of band, or a tombstone did not hold. | **Medium** — invalidates B7's starting state; possible unclosed edge of Bugs 4/5/7 in EM10.5 | **Open.** Backend/ingestion — belongs against EM10.5, not this document. Reconcile the actual Gmail label state before running B7. |
 | 3 | A.5 | **Nine `sync_enabled` `email_connections` rows for two distinct mailboxes.** Owner `65900664-…` has 6 rows for `tenzin@relativitysystems.ai` (created 2026-07-27 through 2026-08-08); member `4c8acdee-…` has 3 for `10zinsteel@gmail.com`. All nine are `sync_enabled = true`. Two of the member's three have `managed_label_id = null`, so those connections never created or reused a managed label. EM1 added provider-partitioned partial unique indexes to `oauth_connections`, but `email_connections` appears to have no equivalent one-active-per-member-per-mailbox constraint, so each reconnect accreted a row instead of replacing one. | **Medium** — duplicate syncing today; makes B9 and EM10.5's Scenarios 5/8/9 unreliable, since disabling or disconnecting one row may leave five syncing | **Open.** Backend/ingestion — belongs against EM10.5/EM9. |
 | 4 | A.6 | **Slack's collection allow-list grants a collection that holds no documents, so Slack can retrieve nothing for this client.** `slack_collection_access` has exactly one row for client `72e78cfe-…`: collection `3b15ddc1` ("Slack"), which contains 0 indexed documents. All 10 of the client's indexed documents — 3 `gmail`, 7 `portal_upload` — are in `c033f615` ("General", default), which is not allow-listed. `aikbAskClient.js` passes the allow-list through explicitly and an empty-of-content grant retrieves nothing, per [ADR-005](../decisions/ADR-005-COLLECTION-FILTERING-FAILS-CLOSED.md). **This is fail-closed behavior working correctly, not a code defect** — logged to track the configuration fix and because it fully blocks A.7 and Part B. | **High** — blocks the entire validation; in production, means the Slack bot answers nothing for this client today | **Closed — 2026-08-24.** Configuration. Fix applied: `c033f615-57ea-42a0-956a-3d9ba5875bf5` added to the allow-list via the portal's Slack panel, alongside (not replacing) `3b15ddc1`. Verified via A.7 (pass) and B5's fail-closed round-trip (pass) — see both sections above. The naming-split product question (should Slack-visible content route to its own collection rather than the client default?) remains open, tracked in E.2, and is not part of what this bug closes. |
+| 5 | B7 | **A genuinely-gap answer slips past `isKnowledgeGapAnswer()`'s phrase list and gets irrelevant citations attached.** After the "Customer Refund Policy" document was tombstoned (step 4), the model's answer was "There is no documented refund policy in the provided knowledge base." — a correct gap, but phrased differently from every fixed substring `isKnowledgeGapAnswer()` checks for (`aikb/services/runKnowledgeQuery.js:58-71`: `'not documented in'`, `'not found in'`, `"couldn't find"`, `'could not find'`, `'no information in'`, `'not in the knowledge base'`, `'not available in the knowledge base'`, `'not provided in the documentation'`, `'there is no information'`). None match "no documented refund policy in the provided knowledge base", so `isGap` evaluates `false` and the response falls through to the normal-answer path, attaching `allSources` — the retrieved-but-unused chunks (`test_b_long.txt`, `restricted-test.txt`, an accredited-investors PDF, "QA Test — Northstar Vendor Policy", "Weekly Sales Meeting Agenda") — as a rendered `Sources:` block, even though the answer text itself says `Source: N/A`. `slackAnswerFormatter.js` is not at fault — it correctly omits a Sources block whenever `isKnowledgeGap` is true; it was simply never told this was a gap. | **Medium** — no data leak (all sources are within the same client's own workspace) but misleading: a user reading "no documented policy" alongside five cited-looking document names may reasonably assume one of them is relevant | **Fixed — 2026-08-31.** `isKnowledgeGapAnswer()` now also checks for a `Source: N/A` line (`SOURCE_NA_RE`) — the structured signal `RAG_SYSTEM_PROMPT` already mandates whenever the model can't answer, independent of prose phrasing. More robust than the phrase list alone, which would have missed even the system prompt's own canonical phrase ("This is not fully documented in our knowledge base." doesn't contain the fixed substring `'not documented in'` — "fully" breaks it). Regression test added in `aikb/test/runKnowledgeQuery.test.js` reproducing this exact answer text; full `runKnowledgeQuery.test.js` suite (44 tests) and full aikb suite (196 tests, excluding 3 pre-existing/unrelated live-trigger scripts requiring real env/network) pass. Re-verified live in Slack, 2026-08-31 7:43 AM — same question now returns the clean `FALLBACK.KNOWLEDGE_GAP` text ("I couldn't find that information in your organization's knowledge base.") with no Sources block. |
 
 When logging, state whether the defect is **Slack-surface** (event handling, formatting, delivery, collection resolution) or **backend/ingestion** (retrieval, indexing, tool orchestration). A backend defect found here belongs against EM10.5 or the relevant EL milestone, not against this document.
 
