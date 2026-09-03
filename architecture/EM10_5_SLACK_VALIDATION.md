@@ -350,15 +350,30 @@ Answer text is a correct gap (no citation of the removed document) — matches t
 
 ### B8 — Policy change propagates to Slack
 
-*Gated on EM10.5 Scenario 4, which is still unrun. Do not run this before it.*
+*Gated on EM10.5 Scenario 4 — passed 2026-08-06 (see `EM10_5_STAGING_CHECKLIST.md`).*
 
-**Setup**: EM10.5 Scenario 4 completed, with its own record of which documents were tombstoned and which remained.
-**Action**: ask Slack a question that the tombstoned content previously answered, and a question that still-allowed content answers.
+**Setup**: Scenario 4's own original evidence (a single tombstoned test message) had since reverted — the org policy narrowing from that run was undone afterward, and the message re-matched the standard allow rule on 2026-08-08, leaving nothing currently policy-excluded. Rather than reuse stale evidence, a fresh deny rule was added 2026-09-02: `Deny`, Sender `tenzin@relativitysystems.ai`, no other criteria. That sender backs two currently-indexed test documents ingested into Member B's (`10zinsteel@gmail.com`) mailbox — "QA Test — Northstar Vendor Policy" and "QA Test — Project Aurora Deployment" — while leaving Customer Refund Policy / Project Phoenix Onboarding SOP / Weekly Sales Meeting Agenda (different sender, `10zinsteel@gmail.com`, into Member A's mailbox) untouched as the still-allowed control.
+
+**Action**:
+1. Confirmed "QA Test — Northstar Vendor Policy" answerable in the portal before any change (baseline).
+2. Saved the deny rule above via the portal's policy builder.
+3. Synced the `10zinsteel@gmail.com` connection.
+4. **Blocked here — see Bug 10.** The sync produced `excluded_deny_listed` events for both target messages, but neither already-indexed document was tombstoned (`knowledge_documents.status` stayed `indexed`). Root-caused to a real bug: `getPreviouslyIngestedMessageIds` scoped its "what has this mailbox previously ingested" lookup to a single `email_connections.id`, and the `10zinsteel@gmail.com` connection had been silently replaced by a new connection row (reconnect) shortly before this sync — orphaning both documents' original `ingested` events from reconciliation. Logged as **Bug 10** in `EM10_5_STAGING_CHECKLIST.md`'s Part 2 bug log; fixed same-day (`emailSyncService.js` now resolves every connection id sharing the mailbox's durable identity — client + member + provider + address — not just the current row), full 826/826 suite green, deployed to production (Vercel `dpl_5KvmSRceGnbCR9DVMpZRpN7MeLna`, commit `b33d494`).
+5. Re-synced the same connection post-fix. `email_ingestion_events` recorded fresh `tombstoned_policy_change` outcomes for both messages with `ingested_document_id` correctly populated; both documents confirmed `status: 'deleted'` in `knowledge_documents` (2026-09-03, ~04:51 UTC).
+6. Asked the tombstoned content's question in Slack, then a control question against untouched content.
+
+**Step 6 evidence (2026-09-03)** — `@mention` in channel, "Who is our approved reporting vendor for Project Aurora, and what's the retention requirement for their reports?":
+> I couldn't find that information in your organization's knowledge base.
+
+Clean gap, consistent with the portal's own re-ask (same question, same clean `Source: N/A` gap format, no stray Sources block — Bug 5's fix holding).
+
+**Control evidence (2026-09-03)** — Slack, refund policy question (content unaffected by the deny rule): came back correct, consistent with B1/B7's established baseline for that document.
+
 **Expected**: the portal stops finding the tombstoned content and so does Slack. Still-allowed documents remain answerable from both surfaces.
-**Evidence to capture**: both Slack messages; the corresponding portal results as controls; `email_ingestion_events` tombstone outcomes from EM10.5 Scenario 4's own record (Bug 6 — the sync summary will misreport).
-**Result**: ☐ Pass ☐ Fail ☐ Partial
-**Notes**:
-**Bugs found** (#):
+**Evidence to capture**: both Slack messages; the corresponding portal results as controls; `email_ingestion_events` tombstone outcomes (Bug 6 — the sync summary will misreport).
+**Result**: ☑ **Pass — 2026-09-03, after finding and fixing Bug 10 along the way.** Both halves of the expected behavior confirmed in Slack: previously-answerable content that now fails org policy returns a clean knowledge gap; still-allowed content remains answerable, unaffected.
+**Notes**: Scenario 4's original gate evidence had gone stale by the time this ran (see Setup) — B8 effectively re-validated the policy-change tombstone path end-to-end itself, on fresh evidence, rather than purely relying on Scenario 4's record. The real finding here wasn't about Slack at all — Bug 10 is a backend reconciliation gap (reconnecting a mailbox orphans its ingestion history from both label-removal and policy-change tombstoning) that would have equally affected the portal; Slack simply inherited it because it consumes the same AIKB retrieval.
+**Bugs found** (#): 10 — found and fixed in step 4; none new in step 6
 
 ### B9 — Member lifecycle changes propagate to Slack
 
